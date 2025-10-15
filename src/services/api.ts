@@ -1,302 +1,112 @@
-import { supabase } from '@/src/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Categoria, Conta, Renda, Despesa, Meta, Usuario } from '@/src/types/models';
 
+// Simple local DB helper using AsyncStorage. Collections are stored under key `db:<collection>` as JSON arrays.
+const COLLECTION_PREFIX = 'db:';
+
+const makeId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+
+async function readCollection<T>(name: string): Promise<T[]> {
+  try {
+    const raw = await AsyncStorage.getItem(COLLECTION_PREFIX + name);
+    if (!raw) return [];
+    return JSON.parse(raw) as T[];
+  } catch (e) {
+    console.error('readCollection error', e);
+    return [];
+  }
+}
+
+async function writeCollection<T>(name: string, data: T[]) {
+  await AsyncStorage.setItem(COLLECTION_PREFIX + name, JSON.stringify(data));
+}
+
+// Generic helpers used by services
+async function getAllOrdered<T extends { created_at?: string }>(name: string, orderKey = 'created_at') {
+  const items = await readCollection<T>(name);
+  return items.sort((a: any, b: any) => {
+    const va = a[orderKey] || '';
+    const vb = b[orderKey] || '';
+    return vb.localeCompare(va);
+  });
+}
+
+async function getById<T extends { id?: string }>(name: string, id: string) {
+  const items = await readCollection<T>(name);
+  return items.find((i) => i.id === id) || null;
+}
+
+async function createItem<T extends { id?: string; created_at?: string }>(name: string, item: Omit<T, 'id' | 'created_at'>) {
+  const items = await readCollection<T>(name);
+  const newItem = { ...(item as object), id: makeId(), created_at: new Date().toISOString() } as T;
+  items.unshift(newItem);
+  await writeCollection(name, items);
+  return newItem;
+}
+
+async function updateItem<T extends { id?: string; created_at?: string }>(name: string, id: string, patch: Partial<T>) {
+  const items = await readCollection<T>(name);
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx === -1) return null;
+  const updated = { ...items[idx], ...patch } as T;
+  items[idx] = updated;
+  await writeCollection(name, items);
+  return updated;
+}
+
+async function deleteItem(name: string, id: string) {
+  const items = await readCollection<any>(name);
+  const filtered = items.filter((i) => i.id !== id);
+  await writeCollection(name, filtered);
+}
+
 export const categoriasService = {
-  getAll: async () => {
-    const { data, error } = await supabase
-      .from('categorias')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data as Categoria[];
-  },
-
-  getById: async (id: string) => {
-    const { data, error } = await supabase
-      .from('categorias')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as Categoria | null;
-  },
-
-  create: async (categoria: Omit<Categoria, 'id' | 'created_at'>) => {
-    const { data, error } = await supabase
-      .from('categorias')
-      .insert(categoria)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Categoria;
-  },
-
-  update: async (id: string, categoria: Partial<Categoria>) => {
-    const { data, error } = await supabase
-      .from('categorias')
-      .update(categoria)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Categoria;
-  },
-
-  delete: async (id: string) => {
-    const { error } = await supabase
-      .from('categorias')
-      .delete()
-      .eq('id', id);
-    if (error) throw error;
-  },
+  getAll: async () => getAllOrdered<Categoria>('categorias', 'created_at'),
+  getById: async (id: string) => getById<Categoria>('categorias', id),
+  create: async (categoria: Omit<Categoria, 'id' | 'created_at'>) => createItem<Categoria>('categorias', categoria),
+  update: async (id: string, categoria: Partial<Categoria>) => updateItem<Categoria>('categorias', id, categoria),
+  delete: async (id: string) => deleteItem('categorias', id),
 };
 
 export const contasService = {
-  getAll: async () => {
-    const { data, error } = await supabase
-      .from('contas')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data as Conta[];
-  },
-
-  getById: async (id: string) => {
-    const { data, error } = await supabase
-      .from('contas')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as Conta | null;
-  },
-
-  create: async (conta: Omit<Conta, 'id' | 'created_at' | 'data_atualizacao'>) => {
-    const { data, error } = await supabase
-      .from('contas')
-      .insert(conta)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Conta;
-  },
-
+  getAll: async () => getAllOrdered<Conta>('contas', 'created_at'),
+  getById: async (id: string) => getById<Conta>('contas', id),
+  create: async (conta: Omit<Conta, 'id' | 'created_at' | 'data_atualizacao'>) => createItem<Conta>('contas', conta),
   update: async (id: string, conta: Partial<Conta>) => {
-    const { data, error } = await supabase
-      .from('contas')
-      .update({ ...conta, data_atualizacao: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Conta;
+    const patch = { ...conta, data_atualizacao: new Date().toISOString() } as Partial<Conta>;
+    return updateItem<Conta>('contas', id, patch);
   },
-
-  delete: async (id: string) => {
-    const { error } = await supabase
-      .from('contas')
-      .delete()
-      .eq('id', id);
-    if (error) throw error;
-  },
+  delete: async (id: string) => deleteItem('contas', id),
 };
 
 export const rendasService = {
-  getAll: async () => {
-    const { data, error } = await supabase
-      .from('rendas')
-      .select('*')
-      .order('data_recebimento', { ascending: false });
-    if (error) throw error;
-    return data as Renda[];
-  },
-
-  getById: async (id: string) => {
-    const { data, error } = await supabase
-      .from('rendas')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as Renda | null;
-  },
-
-  create: async (renda: Omit<Renda, 'id' | 'created_at'>) => {
-    const { data, error } = await supabase
-      .from('rendas')
-      .insert(renda)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Renda;
-  },
-
-  update: async (id: string, renda: Partial<Renda>) => {
-    const { data, error } = await supabase
-      .from('rendas')
-      .update(renda)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Renda;
-  },
-
-  delete: async (id: string) => {
-    const { error } = await supabase
-      .from('rendas')
-      .delete()
-      .eq('id', id);
-    if (error) throw error;
-  },
+  getAll: async () => getAllOrdered<Renda>('rendas', 'data_recebimento'),
+  getById: async (id: string) => getById<Renda>('rendas', id),
+  create: async (renda: Omit<Renda, 'id' | 'created_at'>) => createItem<Renda>('rendas', renda),
+  update: async (id: string, renda: Partial<Renda>) => updateItem<Renda>('rendas', id, renda),
+  delete: async (id: string) => deleteItem('rendas', id),
 };
 
 export const despesasService = {
-  getAll: async () => {
-    const { data, error } = await supabase
-      .from('despesas')
-      .select('*')
-      .order('data_pagamento', { ascending: false });
-    if (error) throw error;
-    return data as Despesa[];
-  },
-
-  getById: async (id: string) => {
-    const { data, error } = await supabase
-      .from('despesas')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as Despesa | null;
-  },
-
-  create: async (despesa: Omit<Despesa, 'id' | 'created_at'>) => {
-    const { data, error } = await supabase
-      .from('despesas')
-      .insert(despesa)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Despesa;
-  },
-
-  update: async (id: string, despesa: Partial<Despesa>) => {
-    const { data, error } = await supabase
-      .from('despesas')
-      .update(despesa)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Despesa;
-  },
-
-  delete: async (id: string) => {
-    const { error } = await supabase
-      .from('despesas')
-      .delete()
-      .eq('id', id);
-    if (error) throw error;
-  },
+  getAll: async () => getAllOrdered<Despesa>('despesas', 'data_pagamento'),
+  getById: async (id: string) => getById<Despesa>('despesas', id),
+  create: async (despesa: Omit<Despesa, 'id' | 'created_at'>) => createItem<Despesa>('despesas', despesa),
+  update: async (id: string, despesa: Partial<Despesa>) => updateItem<Despesa>('despesas', id, despesa),
+  delete: async (id: string) => deleteItem('despesas', id),
 };
 
 export const metasService = {
-  getAll: async () => {
-    const { data, error } = await supabase
-      .from('metas')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data as Meta[];
-  },
-
-  getById: async (id: string) => {
-    const { data, error } = await supabase
-      .from('metas')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as Meta | null;
-  },
-
-  create: async (meta: Omit<Meta, 'id' | 'created_at'>) => {
-    const { data, error } = await supabase
-      .from('metas')
-      .insert(meta)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Meta;
-  },
-
-  update: async (id: string, meta: Partial<Meta>) => {
-    const { data, error } = await supabase
-      .from('metas')
-      .update(meta)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Meta;
-  },
-
-  delete: async (id: string) => {
-    const { error } = await supabase
-      .from('metas')
-      .delete()
-      .eq('id', id);
-    if (error) throw error;
-  },
+  getAll: async () => getAllOrdered<Meta>('metas', 'created_at'),
+  getById: async (id: string) => getById<Meta>('metas', id),
+  create: async (meta: Omit<Meta, 'id' | 'created_at'>) => createItem<Meta>('metas', meta),
+  update: async (id: string, meta: Partial<Meta>) => updateItem<Meta>('metas', id, meta),
+  delete: async (id: string) => deleteItem('metas', id),
 };
 
 export const usuariosService = {
-  getAll: async () => {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data as Usuario[];
-  },
-
-  getById: async (id: string) => {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as Usuario | null;
-  },
-
-  create: async (usuario: Omit<Usuario, 'id' | 'created_at'>) => {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .insert(usuario)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Usuario;
-  },
-
-  update: async (id: string, usuario: Partial<Usuario>) => {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .update(usuario)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as Usuario;
-  },
-
-  delete: async (id: string) => {
-    const { error } = await supabase
-      .from('usuarios')
-      .delete()
-      .eq('id', id);
-    if (error) throw error;
-  },
+  getAll: async () => getAllOrdered<Usuario>('usuarios', 'created_at'),
+  getById: async (id: string) => getById<Usuario>('usuarios', id),
+  create: async (usuario: Omit<Usuario, 'id' | 'created_at'>) => createItem<Usuario>('usuarios', usuario),
+  update: async (id: string, usuario: Partial<Usuario>) => updateItem<Usuario>('usuarios', id, usuario),
+  delete: async (id: string) => deleteItem('usuarios', id),
 };

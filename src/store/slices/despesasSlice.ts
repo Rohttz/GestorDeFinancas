@@ -61,13 +61,15 @@ const despesasSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Erro ao carregar despesas';
       })
-      .addCase(createDespesa.fulfilled, (state, action: PayloadAction<Despesa>) => {
+      .addCase(createDespesa.fulfilled, (state, action: PayloadAction<Despesa | null>) => {
+        if (!action.payload) return;
         state.items.unshift(action.payload);
       })
-      .addCase(updateDespesa.fulfilled, (state, action: PayloadAction<Despesa>) => {
-        const index = state.items.findIndex((item) => item.id === action.payload.id);
+      .addCase(updateDespesa.fulfilled, (state, action: PayloadAction<Despesa | null>) => {
+        if (!action.payload) return;
+        const index = state.items.findIndex((item) => item.id === action.payload!.id);
         if (index !== -1) {
-          state.items[index] = action.payload;
+          state.items[index] = action.payload!;
         }
       })
       .addCase(deleteDespesa.fulfilled, (state, action: PayloadAction<string>) => {

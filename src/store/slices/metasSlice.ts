@@ -61,13 +61,15 @@ const metasSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Erro ao carregar metas';
       })
-      .addCase(createMeta.fulfilled, (state, action: PayloadAction<Meta>) => {
+      .addCase(createMeta.fulfilled, (state, action: PayloadAction<Meta | null>) => {
+        if (!action.payload) return;
         state.items.unshift(action.payload);
       })
-      .addCase(updateMeta.fulfilled, (state, action: PayloadAction<Meta>) => {
-        const index = state.items.findIndex((item) => item.id === action.payload.id);
+      .addCase(updateMeta.fulfilled, (state, action: PayloadAction<Meta | null>) => {
+        if (!action.payload) return;
+        const index = state.items.findIndex((item) => item.id === action.payload!.id);
         if (index !== -1) {
-          state.items[index] = action.payload;
+          state.items[index] = action.payload!;
         }
       })
       .addCase(deleteMeta.fulfilled, (state, action: PayloadAction<string>) => {

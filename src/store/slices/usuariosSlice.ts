@@ -61,13 +61,15 @@ const usuariosSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Erro ao carregar usuários';
       })
-      .addCase(createUsuario.fulfilled, (state, action: PayloadAction<Usuario>) => {
+      .addCase(createUsuario.fulfilled, (state, action: PayloadAction<Usuario | null>) => {
+        if (!action.payload) return;
         state.items.unshift(action.payload);
       })
-      .addCase(updateUsuario.fulfilled, (state, action: PayloadAction<Usuario>) => {
-        const index = state.items.findIndex((item) => item.id === action.payload.id);
+      .addCase(updateUsuario.fulfilled, (state, action: PayloadAction<Usuario | null>) => {
+        if (!action.payload) return;
+        const index = state.items.findIndex((item) => item.id === action.payload!.id);
         if (index !== -1) {
-          state.items[index] = action.payload;
+          state.items[index] = action.payload!;
         }
       })
       .addCase(deleteUsuario.fulfilled, (state, action: PayloadAction<string>) => {

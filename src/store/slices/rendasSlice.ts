@@ -61,13 +61,15 @@ const rendasSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Erro ao carregar rendas';
       })
-      .addCase(createRenda.fulfilled, (state, action: PayloadAction<Renda>) => {
+      .addCase(createRenda.fulfilled, (state, action: PayloadAction<Renda | null>) => {
+        if (!action.payload) return;
         state.items.unshift(action.payload);
       })
-      .addCase(updateRenda.fulfilled, (state, action: PayloadAction<Renda>) => {
-        const index = state.items.findIndex((item) => item.id === action.payload.id);
+      .addCase(updateRenda.fulfilled, (state, action: PayloadAction<Renda | null>) => {
+        if (!action.payload) return;
+        const index = state.items.findIndex((item) => item.id === action.payload!.id);
         if (index !== -1) {
-          state.items[index] = action.payload;
+          state.items[index] = action.payload!;
         }
       })
       .addCase(deleteRenda.fulfilled, (state, action: PayloadAction<string>) => {

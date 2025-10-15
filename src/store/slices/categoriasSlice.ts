@@ -61,13 +61,15 @@ const categoriasSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Erro ao carregar categorias';
       })
-      .addCase(createCategoria.fulfilled, (state, action: PayloadAction<Categoria>) => {
+      .addCase(createCategoria.fulfilled, (state, action: PayloadAction<Categoria | null>) => {
+        if (!action.payload) return;
         state.items.unshift(action.payload);
       })
-      .addCase(updateCategoria.fulfilled, (state, action: PayloadAction<Categoria>) => {
-        const index = state.items.findIndex((item) => item.id === action.payload.id);
+      .addCase(updateCategoria.fulfilled, (state, action: PayloadAction<Categoria | null>) => {
+        if (!action.payload) return;
+        const index = state.items.findIndex((item) => item.id === action.payload!.id);
         if (index !== -1) {
-          state.items[index] = action.payload;
+          state.items[index] = action.payload!;
         }
       })
       .addCase(deleteCategoria.fulfilled, (state, action: PayloadAction<string>) => {

@@ -1,7 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
-
-const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Supabase client removed for local-only prototype mode.
+// If some code still imports `supabase`, this stub will throw a helpful error.
+export const supabase = new Proxy({}, {
+	get() {
+		throw new Error(
+			'Supabase is disabled in local prototype mode. Use local services from src/services/api instead.'
+		);
+	},
+});

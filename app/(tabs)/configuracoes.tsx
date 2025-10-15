@@ -317,7 +317,7 @@ export default function ConfiguracoesScreen() {
             <Plus size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
-        <FlatList
+        <FlatList<any>
           data={
             activeSection === 'categorias'
               ? categorias
