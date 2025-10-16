@@ -77,7 +77,7 @@ export default function ConfiguracoesScreen() {
   });
 
   const { control: contaControl, handleSubmit: handleContaSubmit, setValue: setContaValue, reset: resetConta } = useForm({
-    defaultValues: { nome: '', tipo: '', saldo: '', observacoes: '' },
+    defaultValues: { nome: '', tipo: '', observacoes: '' },
   });
 
   const { control: usuarioControl, handleSubmit: handleUsuarioSubmit, setValue: setUsuarioValue, reset: resetUsuario } = useForm({
@@ -164,7 +164,6 @@ export default function ConfiguracoesScreen() {
         } else if (section === 'contas') {
           setContaValue('nome', item.nome);
           setContaValue('tipo', item.tipo);
-          setContaValue('saldo', String(item.saldo));
           setContaValue('observacoes', item.observacoes || '');
         } else if (section === 'usuarios') {
           setUsuarioValue('nome', item.nome);
@@ -217,7 +216,6 @@ export default function ConfiguracoesScreen() {
   const closeModal = () => {
     setModalVisible(false);
     setEditingId(null);
-    setActiveSection(null);
   };
 
   const onSubmitCategoria = async (data: any) => {
@@ -241,13 +239,16 @@ export default function ConfiguracoesScreen() {
   const onSubmitConta = async (data: any) => {
     try {
       setLoading(true);
-      const saldoNumerico = parseFloat(data.saldo.replace(/[^\d,]/g, '').replace(',', '.'));
-      const contaData = { ...data, saldo: saldoNumerico };
+      const contaData = {
+        nome: data.nome,
+        tipo: data.tipo,
+        observacoes: data.observacoes,
+      };
       if (editingId) {
         await dispatch(updateConta({ id: editingId, data: contaData })).unwrap();
         Alert.alert('Sucesso', 'Conta atualizada!');
       } else {
-        await dispatch(createConta(contaData)).unwrap();
+        await dispatch(createConta({ ...contaData, saldo: 0 })).unwrap();
         Alert.alert('Sucesso', 'Conta cadastrada!');
       }
       closeModal();
@@ -566,13 +567,6 @@ export default function ConfiguracoesScreen() {
                     name="tipo"
                     render={({ field: { onChange, value } }) => (
                       <InputMask label="Tipo *" value={value} onChangeText={(text) => onChange(text)} placeholder="Corrente, Poupança..." />
-                    )}
-                  />
-                  <Controller
-                    control={contaControl}
-                    name="saldo"
-                    render={({ field: { onChange, value } }) => (
-                      <InputMask label="Saldo *" value={value} onChangeText={(text) => onChange(text)} placeholder="R$ 0,00" keyboardType="numeric" />
                     )}
                   />
                   <Controller
