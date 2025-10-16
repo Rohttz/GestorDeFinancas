@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
@@ -18,6 +20,7 @@ import {
   confirmPasswordReset,
   requestPasswordReset,
 } from '@/src/store/slices/authSlice';
+import { KeyRound, RefreshCw } from 'lucide-react-native';
 
 export default function RecoveryScreen() {
   const router = useRouter();
@@ -28,6 +31,7 @@ export default function RecoveryScreen() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [senha, setSenha] = useState('');
+  const [codeDialogVisible, setCodeDialogVisible] = useState(false);
 
   useEffect(() => {
     if (error) {
@@ -36,11 +40,15 @@ export default function RecoveryScreen() {
   }, [dispatch, error]);
 
   useEffect(() => {
-    if (resetRequest) {
-      Alert.alert(
-        'Código gerado',
-        `Um código temporário foi criado: ${resetRequest.code}. Informe-o abaixo para redefinir sua senha.`
-      );
+    if (resetRequest?.code) {
+      setCode(resetRequest.code);
+      setCodeDialogVisible(true);
+    }
+  }, [resetRequest]);
+
+  useEffect(() => {
+    if (!resetRequest) {
+      setCodeDialogVisible(false);
     }
   }, [resetRequest]);
 
@@ -132,6 +140,43 @@ export default function RecoveryScreen() {
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={codeDialogVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCodeDialogVisible(false)}
+      >
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.codeCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <View style={[styles.codeIcon, { backgroundColor: colors.primary + '15' }]}> 
+              <KeyRound size={28} color={colors.primary} />
+            </View>
+            <Text style={[styles.codeTitle, { color: colors.text }]}>Código gerado com sucesso</Text>
+            <Text style={[styles.codeMessage, { color: colors.textSecondary }]}>Use o código abaixo para redefinir sua senha. Ele já foi preenchido automaticamente no campo "Código recebido".</Text>
+            <View style={[styles.codeBadge, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}> 
+              <Text style={[styles.codeText, { color: colors.primary }]}>{resetRequest?.code ?? '-----'}</Text>
+            </View>
+            <View style={styles.codeActions}>
+              <TouchableOpacity
+                style={[styles.codeSecondaryButton, { borderColor: colors.border }]}
+                onPress={() => setCodeDialogVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.codeSecondaryText, { color: colors.textSecondary }]}>Continuar depois</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.codePrimaryButton, { backgroundColor: colors.primary }]}
+                onPress={() => setCodeDialogVisible(false)}
+                activeOpacity={0.7}
+              >
+                <RefreshCw size={18} color="#FFFFFF" />
+                <Text style={styles.codePrimaryText}>Inserir agora</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -181,5 +226,79 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  codeCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 16,
+  },
+  codeIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  codeTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  codeMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  codeBadge: {
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  codeText: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: 4,
+  },
+  codeActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  codeSecondaryButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  codeSecondaryText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  codePrimaryButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  codePrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

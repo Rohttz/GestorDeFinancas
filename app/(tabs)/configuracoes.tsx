@@ -9,7 +9,7 @@ import {
   FlatList,
   Alert,
   RefreshControl,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/contexts/ThemeContext';
@@ -45,6 +45,7 @@ import {
   Tag,
   CreditCard,
   User,
+  LogOut,
   X,
 } from 'lucide-react-native';
 import { formatCurrencyBR } from '@/src/utils/format';
@@ -62,6 +63,9 @@ export default function ConfiguracoesScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const categorias = useAppSelector((state) => state.categorias.items);
   const contas = useAppSelector((state) => state.contas.items);
@@ -94,20 +98,39 @@ export default function ConfiguracoesScreen() {
     setActiveSection(null);
     setModalVisible(false);
     setEditingId(null);
+    setLogoutDialogVisible(false);
+    setLogoutLoading(false);
+    setLogoutError(null);
+  }, []);
+  const openLogoutDialog = useCallback(() => {
+    setLogoutError(null);
+    setLogoutDialogVisible(true);
   }, []);
 
-  const confirmLogout = useCallback(async () => {
-    if (Platform.OS === 'web') {
-      return window.confirm('Deseja realmente sair da sua conta?');
+  const closeLogoutDialog = useCallback(() => {
+    setLogoutDialogVisible(false);
+    setLogoutLoading(false);
+    setLogoutError(null);
+  }, []);
+
+  const handleConfirmLogout = useCallback(async () => {
+    setLogoutLoading(true);
+    setLogoutError(null);
+    try {
+      await dispatch(logout()).unwrap();
+    } catch (error) {
+      setLogoutLoading(false);
+      setLogoutError('Não foi possível encerrar a sessão. Tente novamente.');
     }
+  }, [dispatch]);
 
-    return await new Promise<boolean>((resolve) => {
-      Alert.alert('Encerrar sessão', 'Deseja realmente sair da sua conta?', [
-        { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
-        { text: 'Sair', style: 'destructive', onPress: () => resolve(true) },
-      ]);
-    });
-  }, []);
+  const handleLogoutPress = useCallback(() => {
+    openLogoutDialog();
+  }, [openLogoutDialog]);
+
+  const handleCancelLogout = useCallback(() => {
+    closeLogoutDialog();
+  }, [closeLogoutDialog]);
 
   useEffect(() => {
     if (!authInitializing && !authUser) {
@@ -212,21 +235,6 @@ export default function ConfiguracoesScreen() {
       setLoading(false);
     }
   };
-
-  const handleLogout = useCallback(async () => {
-    const confirmed = await confirmLogout();
-    if (!confirmed) return;
-
-    try {
-      await dispatch(logout()).unwrap();
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível encerrar a sessão. Tente novamente.');
-    }
-  }, [confirmLogout, dispatch]);
-
-  const handleLogoutPress = useCallback(() => {
-    void handleLogout();
-  }, [handleLogout]);
 
   const handleDelete = (section: ConfigSection, id: string) => {
     Alert.alert('Confirmar exclusão', 'Deseja realmente excluir?', [
@@ -410,6 +418,53 @@ export default function ConfiguracoesScreen() {
 
       {renderSection()}
 
+      <Modal
+        visible={logoutDialogVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelLogout}
+      >
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.confirmCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <View style={[styles.confirmIcon, { backgroundColor: colors.primary + '15' }]}> 
+              <LogOut size={28} color={colors.primary} />
+            </View>
+            <Text style={[styles.confirmTitle, { color: colors.text }]}>Encerrar sessão</Text>
+            <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}> 
+              Tem certeza que deseja sair? Você precisará fazer login novamente para acessar suas finanças.
+            </Text>
+            {logoutError && (
+              <Text style={[styles.confirmError, { color: colors.danger }]}>{logoutError}</Text>
+            )}
+            <View style={styles.confirmActions}>
+              <TouchableOpacity
+                style={[styles.confirmCancelButton, { borderColor: colors.border }]}
+                activeOpacity={0.7}
+                onPress={handleCancelLogout}
+                disabled={logoutLoading}
+              >
+                <Text style={[styles.confirmCancelText, { color: colors.textSecondary }]}>Continuar no app</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmPrimaryButton, { backgroundColor: colors.danger }]}
+                activeOpacity={0.7}
+                onPress={handleConfirmLogout}
+                disabled={logoutLoading}
+              >
+                {logoutLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <LogOut size={18} color="#FFFFFF" />
+                    <Text style={styles.confirmPrimaryText}>Sim, quero sair</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
@@ -555,4 +610,49 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },
   modalScroll: { paddingHorizontal: 16, paddingBottom: 20 },
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  confirmCard: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 16,
+  },
+  confirmIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmTitle: { fontSize: 20, fontWeight: '700' },
+  confirmMessage: { fontSize: 14, textAlign: 'center' },
+  confirmError: { fontSize: 12, textAlign: 'center' },
+  confirmActions: { flexDirection: 'row', gap: 12, width: '100%' },
+  confirmCancelButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmCancelText: { fontSize: 14, fontWeight: '600' },
+  confirmPrimaryButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  confirmPrimaryText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
 });
