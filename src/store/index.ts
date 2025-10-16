@@ -6,9 +6,11 @@ import despesasReducer from './slices/despesasSlice';
 import metasReducer from './slices/metasSlice';
 import usuariosReducer from './slices/usuariosSlice';
 import themeReducer from './slices/themeSlice';
+import authReducer from './slices/authSlice';
 
 export const store = configureStore({
   reducer: {
+    auth: authReducer,
     categorias: categoriasReducer,
     contas: contasReducer,
     rendas: rendasReducer,

@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { contasService } from '@/src/services/api';
 import { Conta } from '@/src/types/models';
+import { RootState } from '@/src/store';
+import { logout } from '@/src/store/slices/authSlice';
 
 interface ContasState {
   items: Conta[];
@@ -14,31 +16,43 @@ const initialState: ContasState = {
   error: null,
 };
 
-export const fetchContas = createAsyncThunk(
+export const fetchContas = createAsyncThunk<Conta[], void, { state: RootState }>(
   'contas/fetchAll',
-  async () => {
-    return await contasService.getAll();
+  async (_, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return [];
+    return await contasService.getAll(userId);
   }
 );
 
-export const createConta = createAsyncThunk(
+export const createConta = createAsyncThunk<
+  Conta | null,
+  Omit<Conta, 'id' | 'created_at' | 'data_atualizacao' | 'user_id'>,
+  { state: RootState }
+>(
   'contas/create',
-  async (conta: Omit<Conta, 'id' | 'created_at' | 'data_atualizacao'>) => {
-    return await contasService.create(conta);
+  async (conta, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return null;
+    return await contasService.create(userId, conta);
   }
 );
 
-export const updateConta = createAsyncThunk(
+export const updateConta = createAsyncThunk<Conta | null, { id: string; data: Partial<Conta> }, { state: RootState }>(
   'contas/update',
-  async ({ id, data }: { id: string; data: Partial<Conta> }) => {
-    return await contasService.update(id, data);
+  async ({ id, data }, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return null;
+    return await contasService.update(userId, id, data);
   }
 );
 
-export const deleteConta = createAsyncThunk(
+export const deleteConta = createAsyncThunk<string, string, { state: RootState }>(
   'contas/delete',
-  async (id: string) => {
-    await contasService.delete(id);
+  async (id, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return id;
+    await contasService.delete(userId, id);
     return id;
   }
 );
@@ -74,6 +88,11 @@ const contasSlice = createSlice({
       })
       .addCase(deleteConta.fulfilled, (state, action: PayloadAction<string>) => {
         state.items = state.items.filter((item) => item.id !== action.payload);
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.items = [];
+        state.loading = false;
+        state.error = null;
       });
   },
 });

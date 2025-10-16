@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { despesasService } from '@/src/services/api';
 import { Despesa } from '@/src/types/models';
+import { RootState } from '@/src/store';
+import { logout } from '@/src/store/slices/authSlice';
 
 interface DespesasState {
   items: Despesa[];
@@ -14,31 +16,39 @@ const initialState: DespesasState = {
   error: null,
 };
 
-export const fetchDespesas = createAsyncThunk(
+export const fetchDespesas = createAsyncThunk<Despesa[], void, { state: RootState }>(
   'despesas/fetchAll',
-  async () => {
-    return await despesasService.getAll();
+  async (_, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return [];
+    return await despesasService.getAll(userId);
   }
 );
 
-export const createDespesa = createAsyncThunk(
+export const createDespesa = createAsyncThunk<Despesa | null, Omit<Despesa, 'id' | 'created_at' | 'user_id'>, { state: RootState }>(
   'despesas/create',
-  async (despesa: Omit<Despesa, 'id' | 'created_at'>) => {
-    return await despesasService.create(despesa);
+  async (despesa, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return null;
+    return await despesasService.create(userId, despesa);
   }
 );
 
-export const updateDespesa = createAsyncThunk(
+export const updateDespesa = createAsyncThunk<Despesa | null, { id: string; data: Partial<Despesa> }, { state: RootState }>(
   'despesas/update',
-  async ({ id, data }: { id: string; data: Partial<Despesa> }) => {
-    return await despesasService.update(id, data);
+  async ({ id, data }, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return null;
+    return await despesasService.update(userId, id, data);
   }
 );
 
-export const deleteDespesa = createAsyncThunk(
+export const deleteDespesa = createAsyncThunk<string, string, { state: RootState }>(
   'despesas/delete',
-  async (id: string) => {
-    await despesasService.delete(id);
+  async (id, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return id;
+    await despesasService.delete(userId, id);
     return id;
   }
 );
@@ -74,6 +84,11 @@ const despesasSlice = createSlice({
       })
       .addCase(deleteDespesa.fulfilled, (state, action: PayloadAction<string>) => {
         state.items = state.items.filter((item) => item.id !== action.payload);
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.items = [];
+        state.loading = false;
+        state.error = null;
       });
   },
 });

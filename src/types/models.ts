@@ -5,6 +5,7 @@ export interface Categoria {
   cor?: string;
   observacoes?: string;
   created_at?: string;
+  user_id?: string;
 }
 
 export interface Conta {
@@ -15,6 +16,7 @@ export interface Conta {
   data_atualizacao?: string;
   observacoes?: string;
   created_at?: string;
+  user_id?: string;
 }
 
 export interface Renda {
@@ -29,6 +31,7 @@ export interface Renda {
   categoria_id?: string;
   conta_id?: string;
   created_at?: string;
+  user_id?: string;
 }
 
 export interface Despesa {
@@ -44,6 +47,7 @@ export interface Despesa {
   conta_id?: string;
   pago: boolean;
   created_at?: string;
+  user_id?: string;
 }
 
 export interface Meta {
@@ -54,15 +58,18 @@ export interface Meta {
   prazo_final: string;
   status: 'Em andamento' | 'Concluída' | 'Atrasada';
   created_at?: string;
+  user_id?: string;
 }
 
 export interface Usuario {
   id?: string;
   nome: string;
+  sobrenome?: string;
   email: string;
   tipo_acesso: 'Administrador' | 'Colaborador';
   status: 'Ativo' | 'Inativo';
   created_at?: string;
+  senha?: string;
 }
 
 export interface DashboardData {

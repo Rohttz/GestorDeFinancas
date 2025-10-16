@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { rendasService } from '@/src/services/api';
 import { Renda } from '@/src/types/models';
+import { RootState } from '@/src/store';
+import { logout } from '@/src/store/slices/authSlice';
 
 interface RendasState {
   items: Renda[];
@@ -14,31 +16,39 @@ const initialState: RendasState = {
   error: null,
 };
 
-export const fetchRendas = createAsyncThunk(
+export const fetchRendas = createAsyncThunk<Renda[], void, { state: RootState }>(
   'rendas/fetchAll',
-  async () => {
-    return await rendasService.getAll();
+  async (_, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return [];
+    return await rendasService.getAll(userId);
   }
 );
 
-export const createRenda = createAsyncThunk(
+export const createRenda = createAsyncThunk<Renda | null, Omit<Renda, 'id' | 'created_at' | 'user_id'>, { state: RootState }>(
   'rendas/create',
-  async (renda: Omit<Renda, 'id' | 'created_at'>) => {
-    return await rendasService.create(renda);
+  async (renda, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return null;
+    return await rendasService.create(userId, renda);
   }
 );
 
-export const updateRenda = createAsyncThunk(
+export const updateRenda = createAsyncThunk<Renda | null, { id: string; data: Partial<Renda> }, { state: RootState }>(
   'rendas/update',
-  async ({ id, data }: { id: string; data: Partial<Renda> }) => {
-    return await rendasService.update(id, data);
+  async ({ id, data }, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return null;
+    return await rendasService.update(userId, id, data);
   }
 );
 
-export const deleteRenda = createAsyncThunk(
+export const deleteRenda = createAsyncThunk<string, string, { state: RootState }>(
   'rendas/delete',
-  async (id: string) => {
-    await rendasService.delete(id);
+  async (id, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return id;
+    await rendasService.delete(userId, id);
     return id;
   }
 );
@@ -74,6 +84,11 @@ const rendasSlice = createSlice({
       })
       .addCase(deleteRenda.fulfilled, (state, action: PayloadAction<string>) => {
         state.items = state.items.filter((item) => item.id !== action.payload);
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.items = [];
+        state.loading = false;
+        state.error = null;
       });
   },
 });

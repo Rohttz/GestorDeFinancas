@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { metasService } from '@/src/services/api';
 import { Meta } from '@/src/types/models';
+import { RootState } from '@/src/store';
+import { logout } from '@/src/store/slices/authSlice';
 
 interface MetasState {
   items: Meta[];
@@ -14,31 +16,39 @@ const initialState: MetasState = {
   error: null,
 };
 
-export const fetchMetas = createAsyncThunk(
+export const fetchMetas = createAsyncThunk<Meta[], void, { state: RootState }>(
   'metas/fetchAll',
-  async () => {
-    return await metasService.getAll();
+  async (_, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return [];
+    return await metasService.getAll(userId);
   }
 );
 
-export const createMeta = createAsyncThunk(
+export const createMeta = createAsyncThunk<Meta | null, Omit<Meta, 'id' | 'created_at' | 'user_id'>, { state: RootState }>(
   'metas/create',
-  async (meta: Omit<Meta, 'id' | 'created_at'>) => {
-    return await metasService.create(meta);
+  async (meta, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return null;
+    return await metasService.create(userId, meta);
   }
 );
 
-export const updateMeta = createAsyncThunk(
+export const updateMeta = createAsyncThunk<Meta | null, { id: string; data: Partial<Meta> }, { state: RootState }>(
   'metas/update',
-  async ({ id, data }: { id: string; data: Partial<Meta> }) => {
-    return await metasService.update(id, data);
+  async ({ id, data }, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return null;
+    return await metasService.update(userId, id, data);
   }
 );
 
-export const deleteMeta = createAsyncThunk(
+export const deleteMeta = createAsyncThunk<string, string, { state: RootState }>(
   'metas/delete',
-  async (id: string) => {
-    await metasService.delete(id);
+  async (id, { getState }) => {
+    const userId = getState().auth.user?.id;
+    if (!userId) return id;
+    await metasService.delete(userId, id);
     return id;
   }
 );
@@ -74,6 +84,11 @@ const metasSlice = createSlice({
       })
       .addCase(deleteMeta.fulfilled, (state, action: PayloadAction<string>) => {
         state.items = state.items.filter((item) => item.id !== action.payload);
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.items = [];
+        state.loading = false;
+        state.error = null;
       });
   },
 });

@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { usuariosService } from '@/src/services/api';
 import { Usuario } from '@/src/types/models';
+import { logout } from './authSlice';
 
 interface UsuariosState {
   items: Usuario[];
@@ -74,6 +75,12 @@ const usuariosSlice = createSlice({
       })
       .addCase(deleteUsuario.fulfilled, (state, action: PayloadAction<string>) => {
         state.items = state.items.filter((item) => item.id !== action.payload);
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.items = [];
+      })
+      .addCase(logout.rejected, (state) => {
+        state.items = [];
       });
   },
 });

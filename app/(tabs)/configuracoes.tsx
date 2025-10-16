@@ -47,6 +47,7 @@ import {
 } from 'lucide-react-native';
 import { formatCurrencyBR } from '@/src/utils/format';
 import { useForm, Controller } from 'react-hook-form';
+import { logout } from '@/src/store/slices/authSlice';
 
 type ConfigSection = 'categorias' | 'contas' | 'usuarios' | null;
 
@@ -62,6 +63,7 @@ export default function ConfiguracoesScreen() {
   const categorias = useAppSelector((state) => state.categorias.items);
   const contas = useAppSelector((state) => state.contas.items);
   const usuarios = useAppSelector((state) => state.usuarios.items);
+  const authUser = useAppSelector((state) => state.auth.user);
 
   const { control: categoriaControl, handleSubmit: handleCategoriaSubmit, setValue: setCategoriaValue, reset: resetCategoria } = useForm({
     defaultValues: { nome: '', tipo: 'Receita', cor: '#3B82F6', observacoes: '' },
@@ -182,6 +184,19 @@ export default function ConfiguracoesScreen() {
     }
   };
 
+  const handleLogout = () => {
+    Alert.alert('Encerrar sessão', 'Deseja realmente sair da sua conta?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Sair',
+        style: 'destructive',
+        onPress: () => {
+          dispatch(logout());
+        },
+      },
+    ]);
+  };
+
   const handleDelete = (section: ConfigSection, id: string) => {
     Alert.alert('Confirmar exclusão', 'Deseja realmente excluir?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -257,6 +272,21 @@ export default function ConfiguracoesScreen() {
     if (!activeSection) {
       return (
         <ScrollView style={styles.scrollView} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+          {authUser && (
+            <Card style={{ marginBottom: 12 }}>
+              <View style={styles.userCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.menuTitle, { color: colors.text }]}>
+                    {authUser.nome}
+                    {authUser.sobrenome ? ` ${authUser.sobrenome}` : ''}
+                  </Text>
+                  <Text style={[styles.menuSubtitle, { color: colors.textSecondary }]}>{authUser.email}</Text>
+                </View>
+                <Button title="Sair" variant="danger" onPress={handleLogout} />
+              </View>
+            </Card>
+          )}
+
           <TouchableOpacity onPress={() => setActiveSection('categorias')}>
             <Card style={{ marginBottom: 12 }}>
               <View style={styles.menuItem}>
@@ -484,6 +514,7 @@ const styles = StyleSheet.create({
   addButton: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   list: { padding: 16 },
   listItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  userCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   colorDot: { width: 16, height: 16, borderRadius: 8 },
   itemTitle: { fontSize: 16, fontWeight: '600' },
   itemSubtitle: { fontSize: 12, marginTop: 2 },

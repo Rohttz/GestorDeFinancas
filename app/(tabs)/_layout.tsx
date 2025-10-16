@@ -1,9 +1,27 @@
-import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
+import { Tabs, useRootNavigationState, useRouter } from 'expo-router';
 import { LayoutDashboard, TrendingUp, TrendingDown, Target, Users } from 'lucide-react-native';
 import { useTheme } from '@/src/contexts/ThemeContext';
+import { useAppSelector } from '@/src/store/hooks';
+import { Loading } from '@/src/components/Loading';
 
 export default function TabsLayout() {
   const { colors } = useTheme();
+  const router = useRouter();
+  const navigationState = useRootNavigationState();
+  const { user, initializing } = useAppSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (!navigationState?.key) return;
+    if (initializing) return;
+    if (!user) {
+      router.replace('/login' as never);
+    }
+  }, [initializing, navigationState?.key, router, user]);
+
+  if (initializing || !navigationState?.key || !user) {
+    return <Loading />;
+  }
 
   return (
     <Tabs
