@@ -12,18 +12,21 @@ export default function RendasLayout() {
         },
         headerTintColor: colors.text,
         headerShadowVisible: false,
+        headerShown: false,
       }}
     >
       <Stack.Screen
         name="index"
         options={{
           title: 'Rendas',
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="form"
         options={{
           title: 'Formulário de Renda',
+          headerShown: true,
         }}
       />
     </Stack>

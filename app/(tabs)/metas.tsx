@@ -19,7 +19,12 @@ import { Loading } from '@/src/components/Loading';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { fetchMetas, createMeta, updateMeta, deleteMeta } from '@/src/store/slices/metasSlice';
 import { Plus, Edit2, Trash2, Calendar, Target as TargetIcon, X } from 'lucide-react-native';
-import { formatDateToDisplay, formatCurrencyBR } from '@/src/utils/format';
+import {
+  formatDateToDisplay,
+  formatCurrencyBR,
+  formatCurrencyFromDigits,
+  parseCurrencyToNumber,
+} from '@/src/utils/format';
 import { Meta } from '@/src/types/models';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -83,16 +88,9 @@ export default function MetasScreen() {
     if (meta) {
       setEditingId(meta.id!);
       setValue('nome', meta.nome);
-      setValue('valor_alvo', String(meta.valor_alvo));
-      setValue('valor_atual', String(meta.valor_atual));
-      // convert ISO to DD-MM-YYYY for display
-      if (meta.prazo_final) {
-        const d = new Date(meta.prazo_final);
-        const display = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
-        setValue('prazo_final', display);
-      } else {
-        setValue('prazo_final', '');
-      }
+      setValue('valor_alvo', formatCurrencyBR(meta.valor_alvo));
+      setValue('valor_atual', formatCurrencyBR(meta.valor_atual));
+      setValue('prazo_final', formatDateToDisplay(meta.prazo_final));
       setValue('status', meta.status);
     } else {
       setEditingId(null);
@@ -110,8 +108,8 @@ export default function MetasScreen() {
   const onSubmit = async (data: FormData) => {
     try {
       setLoading(true);
-      const valorAlvo = parseFloat(data.valor_alvo.replace(/[^\d,]/g, '').replace(',', '.'));
-      const valorAtual = parseFloat(data.valor_atual.replace(/[^\d,]/g, '').replace(',', '.'));
+  const valorAlvo = parseCurrencyToNumber(data.valor_alvo);
+  const valorAtual = parseCurrencyToNumber(data.valor_atual);
 
       // convert display DD-MM-YYYY to ISO YYYY-MM-DD
       const dateParts = data.prazo_final.split('-');
@@ -200,7 +198,7 @@ export default function MetasScreen() {
           <View style={styles.detailRow}>
             <Calendar size={16} color={colors.textSecondary} />
             <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-              Prazo: {new Date(item.prazo_final).toLocaleDateString('pt-BR')}
+              Prazo: {formatDateToDisplay(item.prazo_final) || '-'}
             </Text>
           </View>
         </View>
@@ -293,7 +291,10 @@ export default function MetasScreen() {
                   <InputMask
                     label="Valor Alvo *"
                     value={value}
-                    onChangeText={(text) => onChange(text)}
+                    onChangeText={(text, raw) => {
+                      const source = raw || text || '';
+                      onChange(formatCurrencyFromDigits(String(source)));
+                    }}
                     placeholder="R$ 0,00"
                     keyboardType="numeric"
                     error={errors.valor_alvo?.message}
@@ -308,7 +309,10 @@ export default function MetasScreen() {
                   <InputMask
                     label="Valor Atual *"
                     value={value}
-                    onChangeText={(text) => onChange(text)}
+                    onChangeText={(text, raw) => {
+                      const source = raw || text || '';
+                      onChange(formatCurrencyFromDigits(String(source)));
+                    }}
                     placeholder="R$ 0,00"
                     keyboardType="numeric"
                     error={errors.valor_atual?.message}
