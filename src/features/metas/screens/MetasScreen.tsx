@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   Modal,
   ScrollView,
   Switch,
@@ -30,6 +29,7 @@ import { Meta } from '@/src/types/models';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { useDialog } from '@/src/contexts/DialogContext';
 
 type FormData = {
   nome: string;
@@ -68,6 +68,7 @@ const defaultFormValues: FormData = {
 const MetasScreen = () => {
   const { colors } = useTheme();
   const dispatch = useAppDispatch();
+  const { showDialog, confirmDialog } = useDialog();
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -149,29 +150,34 @@ const MetasScreen = () => {
 
       if (editingId) {
         await dispatch(updateMeta({ id: editingId, data: metaData })).unwrap();
-        Alert.alert('Sucesso', 'Meta atualizada com sucesso!');
+        await showDialog('Sucesso', 'Meta atualizada com sucesso!');
       } else {
         await dispatch(createMeta(metaData)).unwrap();
-        Alert.alert('Sucesso', 'Meta cadastrada com sucesso!');
+        await showDialog('Sucesso', 'Meta cadastrada com sucesso!');
       }
       closeModal();
     } catch (error) {
-      Alert.alert('Erro', 'Ocorreu um erro ao salvar a meta.');
+      await showDialog('Erro', 'Ocorreu um erro ao salvar a meta.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = (id: string) => {
-    Alert.alert('Confirmar exclusão', 'Deseja realmente excluir esta meta?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: () => dispatch(deleteMeta(id)),
-      },
-    ]);
-  };
+  const handleDelete = useCallback(
+    async (id: string) => {
+      const confirmed = await confirmDialog('Confirmar exclusão', 'Deseja realmente excluir esta meta?', {
+        cancelText: 'Cancelar',
+        confirmText: 'Excluir',
+        destructive: true,
+      });
+
+      if (!confirmed) return;
+
+      await dispatch(deleteMeta(id));
+      await showDialog('Sucesso', 'Meta excluída com sucesso!');
+    },
+    [confirmDialog, dispatch, showDialog],
+  );
 
   const getStatusColor = (status: string) => {
     if (status === 'Concluída') return colors.success;
