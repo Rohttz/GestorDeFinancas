@@ -16,9 +16,9 @@ Com o Metro rodando, abra o Expo Go (ou um simulador) e carregue o projeto. Toda
 
 ---
 
-## ✅ Requisito 1 — Stack técnica completa (6,0 pts)
+## ✅ Requisito 1 — Stack técnica completa 
 
-### 1.1 Componentes, bibliotecas e integrações (2,0 pts)
+### 1.1 Componentes, bibliotecas e integrações 
 
 1. Abra qualquer tela (por exemplo, **Dashboard**) e observe o uso extensivo de componentes nativos do React Native: `View`, `Text`, `ScrollView`, `FlatList`, `Modal`, `TouchableOpacity`, `RefreshControl`, `ActivityIndicator`, `Alert`, `Animated`, entre outros (ver `src/features/**/*`).
 2. Confirme o uso das bibliotecas exigidas:
@@ -29,7 +29,7 @@ Com o Metro rodando, abra o Expo Go (ou um simulador) e carregue o projeto. Toda
    - **AsyncStorage** para persistência local em `src/services/api.ts` e `src/store/slices/authSlice.ts`.
    - **Comunicação com API local** via o helper de `src/services/api.ts`, que abstrai Create/Read/Update/Delete usando AsyncStorage como banco local.
 
-### 1.2 Cinco CRUDs completos com entradas variadas (3,0 pts)
+### 1.2 Cinco CRUDs completos com entradas variadas 
 
 Para cada módulo abaixo, percorra a sequência **Listar → Criar → Editar → Excluir**. Todos utilizam pelo menos 5 campos e tipos variados (texto, números, máscaras, seletores, switches ou pickers):
 
@@ -44,7 +44,7 @@ Para cada módulo abaixo, percorra a sequência **Listar → Criar → Editar �
 
 > **Dica:** Todos os formulários exibem mensagens de validação em tempo real graças ao React Hook Form + Yup. Experimente enviar campos vazios para ver os avisos obrigatórios.
 
-### 1.3 Tela diferenciada (1,0 pt)
+### 1.3 Tela diferenciada 
 
 - A aba **Dashboard** (`src/features/dashboard/screens/DashboardScreen.tsx`) apresenta visualização avançada de dados:
   - Gráficos de pizza (`react-native-chart-kit`) com cores dinâmicas.
@@ -54,7 +54,7 @@ Para cada módulo abaixo, percorra a sequência **Listar → Criar → Editar �
 
 ---
 
-## 🎨 Requisito 2 — Criatividade e Interface (2,0 pts)
+## 🎨 Requisito 2 — Criatividade e Interface 
 
 Passeie por todas as abas e observe:
 - Paleta de cores adaptável ao tema claro/escuro (controle no Dashboard).
