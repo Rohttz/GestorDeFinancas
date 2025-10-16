@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,7 +19,7 @@ import {
   confirmPasswordReset,
   requestPasswordReset,
 } from '@/src/store/slices/authSlice';
-import { KeyRound, RefreshCw } from 'lucide-react-native';
+import { KeyRound, RefreshCw, CheckCircle2, AlertTriangle, LogIn } from 'lucide-react-native';
 
 export default function RecoveryScreen() {
   const router = useRouter();
@@ -32,12 +31,59 @@ export default function RecoveryScreen() {
   const [code, setCode] = useState('');
   const [senha, setSenha] = useState('');
   const [codeDialogVisible, setCodeDialogVisible] = useState(false);
+  const [errorDialogVisible, setErrorDialogVisible] = useState(false);
+  const [successDialogVisible, setSuccessDialogVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showError = useCallback((message: string) => {
+    setErrorMessage(message);
+    setErrorDialogVisible(true);
+  }, []);
+
+  const closeErrorDialog = useCallback(() => {
+    setErrorDialogVisible(false);
+    setErrorMessage('');
+    dispatch(clearAuthError());
+  }, [dispatch]);
+
+  const showSuccess = useCallback(
+    (message: string) => {
+      setSuccessMessage(message);
+      setSuccessDialogVisible(true);
+
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+
+      successTimeoutRef.current = setTimeout(() => {
+        setSuccessDialogVisible(false);
+        setSuccessMessage('');
+        router.replace('/login' as never);
+        successTimeoutRef.current = null;
+      }, 2000);
+    },
+    [router],
+  );
+
+  const handleCloseSuccess = useCallback(() => {
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
+
+    setSuccessDialogVisible(false);
+    setSuccessMessage('');
+    router.replace('/login' as never);
+  }, [router]);
 
   useEffect(() => {
     if (error) {
-      Alert.alert('Não foi possível continuar', error, [{ text: 'OK', onPress: () => dispatch(clearAuthError()) }]);
+      setErrorMessage(error);
+      setErrorDialogVisible(true);
     }
-  }, [dispatch, error]);
+  }, [error]);
 
   useEffect(() => {
     if (resetRequest?.code) {
@@ -52,30 +98,45 @@ export default function RecoveryScreen() {
     }
   }, [resetRequest]);
 
-  const handleRequestCode = () => {
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+        successTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleRequestCode = async () => {
     if (!email.trim()) {
-      Alert.alert('Informe o e-mail', 'Digite o e-mail cadastrado para gerar o código.');
+      showError('Digite o e-mail cadastrado para gerar o código.');
       return;
     }
 
-    dispatch(requestPasswordReset({ email }));
+    try {
+      await dispatch(requestPasswordReset({ email })).unwrap();
+    } catch {
+      // erro já exibido via estado global
+    }
   };
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     if (!email.trim() || !code.trim() || !senha.trim()) {
-      Alert.alert('Campos obrigatórios', 'Preencha e-mail, código e nova senha.');
+      showError('Preencha e-mail, código e nova senha.');
       return;
     }
 
-    dispatch(confirmPasswordReset({ email, code, senha })).unwrap()
-      .then(() => {
-        Alert.alert('Senha atualizada', 'Sua senha foi redefinida com sucesso.', [
-          { text: 'Fazer login', onPress: () => router.replace('/login' as never) },
-        ]);
-      })
-      .catch(() => {
-        // Erro já tratado pela slice, nenhuma ação adicional necessária aqui
-      });
+    try {
+      await dispatch(confirmPasswordReset({ email, code, senha })).unwrap();
+      dispatch(clearAuthError());
+      showSuccess('Senha redefinida com sucesso. Você será redirecionado em instantes.');
+      setSenha('');
+      setCode('');
+    } catch (err) {
+      const message = typeof err === 'string' ? err : 'Não foi possível redefinir a senha. Tente novamente.';
+      showError(message);
+      dispatch(clearAuthError());
+    }
   };
 
   return (
@@ -149,12 +210,12 @@ export default function RecoveryScreen() {
       >
         <View style={styles.dialogOverlay}>
           <View style={[styles.codeCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <View style={[styles.codeIcon, { backgroundColor: colors.primary + '15' }]}> 
+            <View style={[styles.codeIcon, { backgroundColor: withOpacity(colors.primary, 0.12) }]}> 
               <KeyRound size={28} color={colors.primary} />
             </View>
             <Text style={[styles.codeTitle, { color: colors.text }]}>Código gerado com sucesso</Text>
             <Text style={[styles.codeMessage, { color: colors.textSecondary }]}>Use o código abaixo para redefinir sua senha. Ele já foi preenchido automaticamente no campo "Código recebido".</Text>
-            <View style={[styles.codeBadge, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}> 
+            <View style={[styles.codeBadge, { backgroundColor: withOpacity(colors.primary, 0.08), borderColor: withOpacity(colors.primary, 0.3) }]}> 
               <Text style={[styles.codeText, { color: colors.primary }]}>{resetRequest?.code ?? '-----'}</Text>
             </View>
             <View style={styles.codeActions}>
@@ -177,8 +238,90 @@ export default function RecoveryScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={errorDialogVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeErrorDialog}
+      >
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.alertCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <View style={[styles.alertIcon, { backgroundColor: withOpacity(colors.danger, 0.12) }]}> 
+              <AlertTriangle size={28} color={colors.danger} />
+            </View>
+            <Text style={[styles.alertTitle, { color: colors.text }]}>Não foi possível continuar</Text>
+            <Text style={[styles.alertMessage, { color: colors.textSecondary }]}>
+              {errorMessage || 'Não conseguimos concluir sua solicitação. Tente novamente em instantes.'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.alertPrimaryButton, { backgroundColor: colors.danger }]}
+              onPress={closeErrorDialog}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.alertPrimaryText}>Entendi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={successDialogVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseSuccess}
+      >
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.alertCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <View style={[styles.alertIcon, { backgroundColor: withOpacity(colors.success, 0.12) }]}> 
+              <CheckCircle2 size={28} color={colors.success} />
+            </View>
+            <Text style={[styles.alertTitle, { color: colors.text }]}>Senha redefinida</Text>
+            <Text style={[styles.alertMessage, { color: colors.textSecondary }]}>
+              {successMessage || 'Tudo certo! Redirecionando você para o login.'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.alertPrimaryButton, { backgroundColor: colors.primary }]}
+              onPress={handleCloseSuccess}
+              activeOpacity={0.7}
+            >
+              <LogIn size={18} color="#FFFFFF" />
+              <Text style={styles.alertPrimaryText}>Ir para o login</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </>
   );
+}
+
+function withOpacity(color: string, alpha: number): string {
+  if (color.startsWith('#')) {
+    let hex = color.slice(1);
+
+    if (hex.length === 3 || hex.length === 4) {
+      hex = hex
+        .split('')
+        .map((char) => char + char)
+        .join('');
+    }
+
+    if (hex.length === 6 || hex.length === 8) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+  }
+
+  const rgbMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/i);
+
+  if (rgbMatch) {
+    const [, r, g, b] = rgbMatch;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  return color;
 }
 
 const styles = StyleSheet.create({
@@ -297,6 +440,45 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   codePrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  alertCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 16,
+  },
+  alertIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  alertPrimaryButton: {
+    width: '100%',
+    height: 48,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  alertPrimaryText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
