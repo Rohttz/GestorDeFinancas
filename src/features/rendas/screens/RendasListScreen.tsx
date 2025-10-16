@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   Modal,
   ScrollView,
 } from 'react-native';
@@ -32,6 +31,7 @@ import { Button } from '@/src/components/Button';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { useDialog } from '@/src/contexts/DialogContext';
 
 export type TipoRenda = 'Unica' | 'Mensal';
 
@@ -89,6 +89,7 @@ const RendasListScreen = () => {
   const { colors } = useTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { confirmDialog, showDialog } = useDialog();
 
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -130,15 +131,16 @@ const RendasListScreen = () => {
     setRefreshing(false);
   };
 
-  const handleDelete = (id: string) => {
-    Alert.alert('Confirmar exclusão', 'Deseja realmente excluir esta renda?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: () => dispatch(deleteRenda(id)),
-      },
-    ]);
+  const handleDelete = async (id: string) => {
+    const confirmed = await confirmDialog('Confirmar exclusão', 'Deseja realmente excluir esta renda?', {
+      cancelText: 'Cancelar',
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+
+    if (!confirmed) return;
+
+    dispatch(deleteRenda(id));
   };
 
   const getCategoriaNome = (categoriaId?: string) => {
@@ -244,16 +246,16 @@ const RendasListScreen = () => {
 
       if (editingId) {
         await dispatch(updateRenda({ id: editingId, data: payload })).unwrap();
-        Alert.alert('Sucesso', 'Renda atualizada com sucesso!');
+        showDialog('Sucesso', 'Renda atualizada com sucesso!');
       } else {
         await dispatch(createRenda(payload)).unwrap();
-        Alert.alert('Sucesso', 'Renda cadastrada com sucesso!');
+        showDialog('Sucesso', 'Renda cadastrada com sucesso!');
       }
 
       closeModal();
       dispatch(fetchRendas());
     } catch (error) {
-      Alert.alert('Erro', 'Ocorreu um erro ao salvar a renda.');
+      showDialog('Erro', 'Ocorreu um erro ao salvar a renda.');
     } finally {
       setLoadingForm(false);
     }

@@ -8,6 +8,7 @@ import { ThemeProvider } from '@/src/contexts/ThemeContext';
 import 'react-native-url-polyfill/auto';
 import { bootstrapSession } from '@/src/store/slices/authSlice';
 import { useAppDispatch } from '@/src/store/hooks';
+import { DialogProvider } from '@/src/contexts/DialogContext';
 
 const BootstrapSession = () => {
   const dispatch = useAppDispatch();
@@ -25,16 +26,18 @@ export default function RootLayout() {
   return (
     <Provider store={store}>
       <ThemeProvider>
-        <BootstrapSession />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="register" />
-          <Stack.Screen name="recovery" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="auto" />
+        <DialogProvider>
+          <BootstrapSession />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="register" />
+            <Stack.Screen name="recovery" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <StatusBar style="auto" />
+        </DialogProvider>
       </ThemeProvider>
     </Provider>
   );

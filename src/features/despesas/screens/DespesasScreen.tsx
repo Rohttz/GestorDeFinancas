@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   Modal,
   ScrollView,
   Switch,
@@ -37,6 +36,7 @@ import { Despesa } from '@/src/types/models';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { useDialog } from '@/src/contexts/DialogContext';
 
 const schema = yup.object({
   descricao: yup.string().required('Descrição é obrigatória'),
@@ -67,6 +67,7 @@ const DespesasScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { confirmDialog, showDialog } = useDialog();
 
   const despesas = useAppSelector((state) => state.despesas.items);
   const loadingState = useAppSelector((state) => state.despesas.loading);
@@ -173,28 +174,29 @@ const DespesasScreen = () => {
 
       if (editingId) {
         await dispatch(updateDespesa({ id: editingId, data: despesaData })).unwrap();
-        Alert.alert('Sucesso', 'Despesa atualizada com sucesso!');
+        showDialog('Sucesso', 'Despesa atualizada com sucesso!');
       } else {
         await dispatch(createDespesa(despesaData)).unwrap();
-        Alert.alert('Sucesso', 'Despesa cadastrada com sucesso!');
+        showDialog('Sucesso', 'Despesa cadastrada com sucesso!');
       }
       closeModal();
     } catch (error) {
-      Alert.alert('Erro', 'Ocorreu um erro ao salvar a despesa.');
+      showDialog('Erro', 'Ocorreu um erro ao salvar a despesa.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = (id: string) => {
-    Alert.alert('Confirmar exclusão', 'Deseja realmente excluir esta despesa?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: () => dispatch(deleteDespesa(id)),
-      },
-    ]);
+  const handleDelete = async (id: string) => {
+    const confirmed = await confirmDialog('Confirmar exclusão', 'Deseja realmente excluir esta despesa?', {
+      cancelText: 'Cancelar',
+      confirmText: 'Excluir',
+      destructive: true,
+    });
+
+    if (!confirmed) return;
+
+    dispatch(deleteDespesa(id));
   };
 
   const getCategoriaNome = (categoriaId?: string) => {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { InputMask } from '@/src/components/InputMask';
@@ -10,27 +10,36 @@ import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { createRenda, updateRenda, fetchRendas } from '@/src/store/slices/rendasSlice';
 import { fetchCategorias } from '@/src/store/slices/categoriasSlice';
 import { fetchContas } from '@/src/store/slices/contasSlice';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, SubmitHandler, Resolver } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { useDialog } from '@/src/contexts/DialogContext';
 
 const schema = yup.object({
   descricao: yup.string().required('Descrição é obrigatória'),
   valor: yup.string().required('Valor é obrigatório'),
   tipo: yup.string().oneOf(['Unica', 'Mensal']).required('Tipo é obrigatório'),
-  data_recebimento: yup.string().when('tipo', (tipo: any, s: any) => {
-    return tipo === 'Unica' ? s.required('Data é obrigatória para renda única') : s.notRequired();
-  }),
-  dia_recebimento: yup.mixed().when('tipo', (tipo: any, s: any) => {
-    return tipo === 'Mensal'
-      ? yup
-          .number()
-          .typeError('Dia deve ser um número')
-          .min(1, 'Dia deve ser entre 1 e 31')
-          .max(31, 'Dia deve ser entre 1 e 31')
+  data_recebimento: yup
+    .string()
+    .when('tipo', {
+      is: 'Unica',
+      then: (schema) => schema.required('Data é obrigatória para renda única'),
+      otherwise: (schema) => schema.notRequired(),
+    }),
+  dia_recebimento: yup
+    .string()
+    .when('tipo', {
+      is: 'Mensal',
+      then: (schema) =>
+        schema
           .required('Dia do mês é obrigatório para renda mensal')
-      : s.notRequired();
-  }),
+          .test('valid-day', 'Dia deve ser entre 1 e 31', (value) => {
+            if (!value) return false;
+            const day = Number(value);
+            return Number.isInteger(day) && day >= 1 && day <= 31;
+          }),
+      otherwise: (schema) => schema.notRequired(),
+    }),
   categoria_id: yup.string().required('Categoria é obrigatória'),
   conta_id: yup.string().required('Conta é obrigatória'),
 });
@@ -39,8 +48,8 @@ type FormData = {
   descricao: string;
   valor: string;
   tipo: 'Unica' | 'Mensal';
-  data_recebimento?: string;
-  dia_recebimento?: number | string;
+  data_recebimento: string;
+  dia_recebimento: string;
   categoria_id: string;
   conta_id: string;
 };
@@ -48,15 +57,37 @@ type FormData = {
 const RendaFormScreen = () => {
   const { colors } = useTheme();
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(false);
+  const { showDialog, confirmDialog } = useDialog();
 
   const rendas = useAppSelector((state) => state.rendas.items);
   const categorias = useAppSelector((state) => state.categorias.items);
   const contas = useAppSelector((state) => state.contas.items);
   const contasLoading = useAppSelector((state) => state.contas.loading);
+  const contasLength = contas.length;
   const hasPromptedForConta = useRef(false);
+
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<FormData>({
+    resolver: yupResolver(schema) as Resolver<FormData>,
+    defaultValues: {
+      descricao: '',
+      valor: '',
+      tipo: 'Unica',
+      data_recebimento: '',
+      dia_recebimento: '',
+      categoria_id: '',
+      conta_id: '',
+    },
+  });
 
   const redirectToContaCadastro = useCallback(() => {
     router.push({
@@ -65,37 +96,20 @@ const RendaFormScreen = () => {
     });
   }, [router]);
 
-  const showContaPrompt = useCallback(() => {
-    Alert.alert(
+  const showContaPrompt = useCallback(async () => {
+    const goToAccounts = await confirmDialog(
       'Cadastre uma conta',
       'Você precisa cadastrar uma conta bancária antes de registrar uma renda. Deseja ir agora para o cadastro de contas?',
-      [
-        { text: 'Agora não', style: 'cancel' },
-        { text: 'Ir para contas', onPress: redirectToContaCadastro },
-      ],
+      {
+        cancelText: 'Agora não',
+        confirmText: 'Ir para contas',
+      },
     );
-  }, [redirectToContaCadastro]);
 
-  const contasLength = contas.length;
-
-  const {
-    control,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<any>({
-    resolver: yupResolver(schema),
-    defaultValues: {
-      descricao: '',
-      valor: '',
-      tipo: 'Unica',
-      data_recebimento: '',
-      dia_recebimento: undefined,
-      categoria_id: '',
-      conta_id: '',
-    },
-  });
+    if (goToAccounts) {
+      redirectToContaCadastro();
+    }
+  }, [confirmDialog, redirectToContaCadastro]);
 
   useEffect(() => {
     dispatch(fetchCategorias());
@@ -104,26 +118,31 @@ const RendaFormScreen = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    if (id && rendas.length > 0) {
-      const renda = rendas.find((r) => r.id === id);
-      if (renda) {
-        setValue('descricao', renda.descricao);
-        setValue('valor', formatCurrencyBR(renda.valor));
-        setValue('tipo', renda.tipo || 'Unica');
-        if (renda.data_recebimento) {
-          const d = new Date(renda.data_recebimento);
-          const display = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${
-            d.getFullYear()
-          }`;
-          setValue('data_recebimento', display);
-        } else {
-          setValue('data_recebimento', '');
-        }
-        if (renda.dia_recebimento) setValue('dia_recebimento', String(renda.dia_recebimento));
-        setValue('categoria_id', renda.categoria_id || '');
-        setValue('conta_id', renda.conta_id || '');
-      }
+    if (!id || rendas.length === 0) return;
+
+    const renda = rendas.find((r) => r.id === id);
+    if (!renda) return;
+
+    setValue('descricao', renda.descricao);
+    setValue('valor', formatCurrencyBR(renda.valor));
+    setValue('tipo', (renda.tipo as 'Unica' | 'Mensal') || 'Unica');
+
+    if (renda.data_recebimento) {
+      const d = new Date(renda.data_recebimento);
+      const display = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+      setValue('data_recebimento', display);
+    } else {
+      setValue('data_recebimento', '');
     }
+
+    if (renda.dia_recebimento) {
+      setValue('dia_recebimento', String(renda.dia_recebimento));
+    } else {
+      setValue('dia_recebimento', '');
+    }
+
+    setValue('categoria_id', renda.categoria_id || '');
+    setValue('conta_id', renda.conta_id || '');
   }, [id, rendas, setValue]);
 
   useEffect(() => {
@@ -132,59 +151,68 @@ const RendaFormScreen = () => {
     if (hasPromptedForConta.current) return;
     if (contasLength === 0) {
       hasPromptedForConta.current = true;
-      showContaPrompt();
+      void showContaPrompt();
     }
   }, [contasLength, contasLoading, id, showContaPrompt]);
 
-  const onSubmit = async (data: any) => {
-    if (!id && !contasLoading && contasLength === 0) {
-      showContaPrompt();
-      return;
-    }
+  const onSubmit = useCallback(
+    async (formData: FormData) => {
+      if (!id && !contasLoading && contasLength === 0) {
+        await showContaPrompt();
+        return;
+      }
 
-    try {
-      setLoading(true);
-      const valorNumerico = parseCurrencyToNumber(data.valor);
+      try {
+        setLoading(true);
+        const valorNumerico = parseCurrencyToNumber(formData.valor);
 
-      let isoDate: string | undefined;
-      if (data.tipo === 'Unica' && data.data_recebimento) {
-        const dateParts = data.data_recebimento.split('-');
-        if (dateParts.length === 3) {
-          const [d, m, y] = dateParts;
-          isoDate = `${y}-${m}-${d}`;
+        let isoDate: string | undefined;
+        if (formData.tipo === 'Unica' && formData.data_recebimento) {
+          const dateParts = formData.data_recebimento.split('-');
+          if (dateParts.length === 3) {
+            const [d, m, y] = dateParts;
+            isoDate = `${y}-${m}-${d}`;
+          }
         }
-      }
 
-      const rendaData: any = {
-        descricao: data.descricao,
-        valor: valorNumerico,
-        categoria_id: data.categoria_id,
-        conta_id: data.conta_id,
-      };
+        const rendaData: any = {
+          descricao: formData.descricao,
+          valor: valorNumerico,
+          categoria_id: formData.categoria_id,
+          conta_id: formData.conta_id,
+        };
 
-      if (data.tipo === 'Unica') {
-        rendaData.tipo = 'Unica';
-        if (isoDate) rendaData.data_recebimento = isoDate;
-      } else {
-        rendaData.tipo = 'Mensal';
-        rendaData.dia_recebimento =
-          typeof data.dia_recebimento === 'string' ? parseInt(data.dia_recebimento, 10) : data.dia_recebimento;
-      }
+        if (formData.tipo === 'Unica') {
+          rendaData.tipo = 'Unica';
+          if (isoDate) {
+            rendaData.data_recebimento = isoDate;
+          }
+        } else {
+          rendaData.tipo = 'Mensal';
+          const dia = formData.dia_recebimento ? parseInt(formData.dia_recebimento, 10) : undefined;
+          if (dia) {
+            rendaData.dia_recebimento = dia;
+          }
+        }
 
-      if (id) {
-        await dispatch(updateRenda({ id: id as string, data: rendaData })).unwrap();
-        Alert.alert('Sucesso', 'Renda atualizada com sucesso!');
-      } else {
-        await dispatch(createRenda(rendaData)).unwrap();
-        Alert.alert('Sucesso', 'Renda cadastrada com sucesso!');
+        if (id) {
+          await dispatch(updateRenda({ id, data: rendaData })).unwrap();
+          await showDialog('Sucesso', 'Renda atualizada com sucesso!');
+        } else {
+          await dispatch(createRenda(rendaData)).unwrap();
+          await showDialog('Sucesso', 'Renda cadastrada com sucesso!');
+        }
+
+        router.back();
+      } catch (error) {
+        console.error(error);
+        await showDialog('Erro', 'Ocorreu um erro ao salvar a renda.');
+      } finally {
+        setLoading(false);
       }
-      router.back();
-    } catch (error) {
-      Alert.alert('Erro', 'Ocorreu um erro ao salvar a renda.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [contasLength, contasLoading, dispatch, id, router, showContaPrompt, showDialog],
+  );
 
   const categoriasReceita = categorias.filter((c) => c.tipo === 'Receita');
   const tipoValue = watch('tipo');
@@ -199,7 +227,7 @@ const RendaFormScreen = () => {
             <InputMask
               label="Descrição *"
               value={value}
-              onChangeText={(text) => onChange(text)}
+              onChangeText={onChange}
               placeholder="Ex: Salário, Freelance..."
               error={errors.descricao?.message as string}
             />
@@ -236,7 +264,7 @@ const RendaFormScreen = () => {
                 { label: 'Renda Única', value: 'Unica' },
                 { label: 'Renda Mensal', value: 'Mensal' },
               ]}
-              onValueChange={(v) => onChange(v)}
+              onValueChange={onChange}
               placeholder="Selecione tipo"
               error={errors.tipo?.message as string}
             />
@@ -251,7 +279,7 @@ const RendaFormScreen = () => {
               <InputMask
                 label="Data de Recebimento *"
                 value={value || ''}
-                onChangeText={(text) => onChange(text)}
+                onChangeText={onChange}
                 mask="99-99-9999"
                 placeholder="DD-MM-AAAA"
                 error={errors.data_recebimento?.message as string}

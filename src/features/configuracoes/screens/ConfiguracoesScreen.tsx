@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
-  Alert,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
@@ -41,6 +40,7 @@ import { Plus, Edit2, Trash2, ChevronRight, Tag, CreditCard, User, LogOut, X } f
 import { formatCurrencyBR } from '@/src/utils/format';
 import { useForm, Controller } from 'react-hook-form';
 import { logout } from '@/src/store/slices/authSlice';
+import { useDialog } from '@/src/contexts/DialogContext';
 
 type ConfigSection = 'categorias' | 'contas' | 'usuarios' | null;
 
@@ -48,6 +48,7 @@ const ConfiguracoesScreen = () => {
   const { colors } = useTheme();
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const { showDialog, confirmDialog } = useDialog();
   const [activeSection, setActiveSection] = useState<ConfigSection>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -60,6 +61,8 @@ const ConfiguracoesScreen = () => {
   const categorias = useAppSelector((state) => state.categorias.items);
   const contas = useAppSelector((state) => state.contas.items);
   const usuarios = useAppSelector((state) => state.usuarios.items);
+  const rendas = useAppSelector((state) => state.rendas.items);
+  const despesas = useAppSelector((state) => state.despesas.items);
   const { user: authUser, initializing: authInitializing } = useAppSelector((state) => state.auth);
 
   const {
@@ -228,14 +231,14 @@ const ConfiguracoesScreen = () => {
       setLoading(true);
       if (editingId) {
         await dispatch(updateCategoria({ id: editingId, data })).unwrap();
-        Alert.alert('Sucesso', 'Categoria atualizada!');
+        showDialog('Sucesso', 'Categoria atualizada!');
       } else {
         await dispatch(createCategoria(data)).unwrap();
-        Alert.alert('Sucesso', 'Categoria cadastrada!');
+        showDialog('Sucesso', 'Categoria cadastrada!');
       }
       closeModal();
     } catch (error) {
-      Alert.alert('Erro', 'Ocorreu um erro.');
+      showDialog('Erro', 'Ocorreu um erro.');
     } finally {
       setLoading(false);
     }
@@ -251,14 +254,14 @@ const ConfiguracoesScreen = () => {
       };
       if (editingId) {
         await dispatch(updateConta({ id: editingId, data: contaData })).unwrap();
-        Alert.alert('Sucesso', 'Conta atualizada!');
+        showDialog('Sucesso', 'Conta atualizada!');
       } else {
         await dispatch(createConta({ ...contaData, saldo: 0 })).unwrap();
-        Alert.alert('Sucesso', 'Conta cadastrada!');
+        showDialog('Sucesso', 'Conta cadastrada!');
       }
       closeModal();
     } catch (error) {
-      Alert.alert('Erro', 'Ocorreu um erro.');
+      showDialog('Erro', 'Ocorreu um erro.');
     } finally {
       setLoading(false);
     }
@@ -269,33 +272,61 @@ const ConfiguracoesScreen = () => {
       setLoading(true);
       if (editingId) {
         await dispatch(updateUsuario({ id: editingId, data })).unwrap();
-        Alert.alert('Sucesso', 'Usuário atualizado!');
+        showDialog('Sucesso', 'Usuário atualizado!');
       } else {
         await dispatch(createUsuario(data)).unwrap();
-        Alert.alert('Sucesso', 'Usuário cadastrado!');
+        showDialog('Sucesso', 'Usuário cadastrado!');
       }
       closeModal();
     } catch (error) {
-      Alert.alert('Erro', 'Ocorreu um erro.');
+      showDialog('Erro', 'Ocorreu um erro.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = (section: ConfigSection, id: string) => {
-    Alert.alert('Confirmar exclusão', 'Deseja realmente excluir?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: () => {
-          if (section === 'categorias') dispatch(deleteCategoria(id));
-          else if (section === 'contas') dispatch(deleteConta(id));
-          else if (section === 'usuarios') dispatch(deleteUsuario(id));
-        },
-      },
-    ]);
-  };
+  const categoriaEmUso = useCallback(
+    (id: string) => rendas.some((renda) => renda.categoria_id === id) || despesas.some((despesa) => despesa.categoria_id === id),
+    [rendas, despesas],
+  );
+
+  const contaEmUso = useCallback(
+    (id: string) => rendas.some((renda) => renda.conta_id === id) || despesas.some((despesa) => despesa.conta_id === id),
+    [rendas, despesas],
+  );
+
+  const handleDelete = useCallback(
+    async (section: ConfigSection, id: string) => {
+      if (section === 'categorias' && categoriaEmUso(id)) {
+        showDialog(
+          'Categoria em uso',
+          'Esta categoria está vinculada a lançamentos. Edite ou remova os lançamentos antes de excluir a categoria.',
+        );
+        return;
+      }
+
+      if (section === 'contas' && contaEmUso(id)) {
+        showDialog(
+          'Conta em uso',
+          'Esta conta está vinculada a lançamentos financeiros. Transfira ou exclua os lançamentos antes de remover a conta.',
+        );
+        return;
+      }
+
+      const confirmed = await confirmDialog('Confirmar exclusão', 'Deseja realmente excluir?', {
+        cancelText: 'Cancelar',
+        confirmText: 'Excluir',
+        destructive: true,
+      });
+
+      if (!confirmed) return;
+
+      if (section === 'categorias') dispatch(deleteCategoria(id));
+      else if (section === 'contas') dispatch(deleteConta(id));
+      else if (section === 'usuarios') dispatch(deleteUsuario(id));
+    },
+    [categoriaEmUso, contaEmUso, dispatch],
+  );
 
   const renderCategoriaItem = ({ item }: any) => (
     <Card style={{ marginBottom: 8 }}>
