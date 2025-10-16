@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Dimensions,
   TouchableOpacity,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { Card } from '@/src/components/Card';
@@ -18,12 +19,17 @@ import { fetchCategorias } from '@/src/store/slices/categoriasSlice';
 import { fetchMetas } from '@/src/store/slices/metasSlice';
 import { PieChart } from 'react-native-chart-kit';
 import { TrendingUp, TrendingDown, Target, DollarSign, Moon, Sun } from 'lucide-react-native';
-import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 import { formatCurrencyBR } from '@/src/utils/format';
 
 export default function DashboardScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const dispatch = useAppDispatch();
+  const [themeTransition, setThemeTransition] = useState<{ type: 'dark' | 'light'; key: number } | null>(null);
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const overlayScale = useRef(new Animated.Value(0.95)).current;
+  const toggleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [dataInicial, setDataInicial] = useState<string>(() => {
     const now = new Date();
@@ -56,6 +62,75 @@ export default function DashboardScreen() {
     await loadData();
     setRefreshing(false);
   };
+
+  const handleThemeToggle = useCallback(() => {
+    if (themeTransition) return;
+    const direction = isDark ? 'light' : 'dark';
+    setThemeTransition({ type: direction, key: Date.now() });
+
+    if (toggleTimeoutRef.current) {
+      clearTimeout(toggleTimeoutRef.current);
+    }
+    toggleTimeoutRef.current = setTimeout(() => {
+      toggleTheme();
+      toggleTimeoutRef.current = null;
+    }, 200);
+  }, [isDark, themeTransition, toggleTheme]);
+
+  useEffect(() => {
+    if (!themeTransition) {
+      overlayOpacity.setValue(0);
+      overlayScale.setValue(0.95);
+      return;
+    }
+
+    overlayOpacity.setValue(0);
+    overlayScale.setValue(themeTransition.type === 'dark' ? 0.9 : 1.05);
+
+    Animated.parallel([
+      Animated.timing(overlayOpacity, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.timing(overlayScale, {
+          toValue: themeTransition.type === 'dark' ? 1.05 : 0.95,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+        Animated.timing(overlayScale, {
+          toValue: 1,
+          duration: 260,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start(() => {
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 300,
+        delay: 120,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    if (cleanupTimeoutRef.current) {
+      clearTimeout(cleanupTimeoutRef.current);
+    }
+    cleanupTimeoutRef.current = setTimeout(() => {
+      cleanupTimeoutRef.current = null;
+      setThemeTransition(null);
+    }, 900);
+  }, [overlayOpacity, overlayScale, themeTransition]);
+
+  useEffect(() => () => {
+    if (toggleTimeoutRef.current) {
+      clearTimeout(toggleTimeoutRef.current);
+    }
+    if (cleanupTimeoutRef.current) {
+      clearTimeout(cleanupTimeoutRef.current);
+    }
+  }, []);
 
   const parseDateString = (s: string): Date | null => {
     if (!s) return null;
@@ -121,7 +196,7 @@ export default function DashboardScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Dashboard Financeiro</Text>
-        <TouchableOpacity onPress={toggleTheme} style={styles.themeToggle}>
+        <TouchableOpacity onPress={handleThemeToggle} style={styles.themeToggle}>
           {isDark ? <Sun size={24} color={colors.text} /> : <Moon size={24} color={colors.text} />}
         </TouchableOpacity>
       </View>
@@ -217,6 +292,59 @@ export default function DashboardScreen() {
 
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      {themeTransition && (
+        <Animated.View
+          pointerEvents="auto"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.themeTransitionOverlay,
+            { opacity: overlayOpacity },
+          ]}
+        >
+          <LinearGradient
+            colors={
+              themeTransition.type === 'dark'
+                ? ['rgba(15, 23, 42, 0.95)', 'rgba(8, 47, 73, 0.85)']
+                : ['rgba(255,255,255,0.95)', 'rgba(245, 250, 255, 0.85)']
+            }
+            style={styles.themeTransitionGradient}
+          >
+            <Animated.View
+              style={[
+                styles.themeTransitionContent,
+                { transform: [{ scale: overlayScale }] },
+              ]}
+            >
+              {themeTransition.type === 'dark' ? (
+                <Moon size={72} color="#E0F2FE" />
+              ) : (
+                <Sun size={72} color="#F59E0B" />
+              )}
+              <Text
+                style={[
+                  styles.themeTransitionTitle,
+                  { color: themeTransition.type === 'dark' ? '#E2E8F0' : '#1E293B' },
+                ]}
+              >
+                {themeTransition.type === 'dark'
+                  ? 'A escuridão está dominando'
+                  : 'A luz está dominando'}
+              </Text>
+              <Text
+                style={[
+                  styles.themeTransitionSubtitle,
+                  { color: themeTransition.type === 'dark' ? '#CBD5F5' : '#334155' },
+                ]}
+              >
+                {themeTransition.type === 'dark'
+                  ? 'Prepare-se para navegar no modo noturno.'
+                  : 'Deixe o brilho do dia iluminar suas finanças.'}
+              </Text>
+            </Animated.View>
+          </LinearGradient>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -289,5 +417,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
+  },
+  themeTransitionOverlay: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  themeTransitionGradient: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  themeTransitionContent: {
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 24,
+  },
+  themeTransitionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  themeTransitionSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
