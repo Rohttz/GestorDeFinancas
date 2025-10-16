@@ -27,7 +27,7 @@ import {
 import { fetchCategorias } from '@/src/store/slices/categoriasSlice';
 import { fetchContas } from '@/src/store/slices/contasSlice';
 import { Plus, Edit2, Trash2, Calendar, DollarSign, X } from 'lucide-react-native';
-import { formatDateToDisplay, formatCurrencyBR } from '@/src/utils/format';
+import { formatDateToDisplay, formatCurrencyBR, formatCurrencyFromDigits, parseCurrencyToNumber } from '@/src/utils/format';
 import { Despesa } from '@/src/types/models';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -36,7 +36,20 @@ import * as yup from 'yup';
 const schema = yup.object({
   descricao: yup.string().required('Descrição é obrigatória'),
   valor: yup.string().required('Valor é obrigatório'),
-  data_pagamento: yup.string().required('Data é obrigatória'),
+  tipo: yup.string().oneOf(['Unica', 'Mensal']).required('Tipo é obrigatório'),
+  data_pagamento: yup.string().when('tipo', (tipo: any, schema: any) => {
+    return tipo === 'Unica' ? schema.required('Data é obrigatória para despesa única') : schema.notRequired();
+  }),
+  dia_pagamento: yup.mixed().when('tipo', (tipo: any, schema: any) => {
+    return tipo === 'Mensal'
+      ? yup
+          .number()
+          .typeError('Dia deve ser um número')
+          .min(1, 'Dia deve ser entre 1 e 31')
+          .max(31, 'Dia deve ser entre 1 e 31')
+          .required('Dia do mês é obrigatório para despesa mensal')
+      : schema.notRequired();
+  }),
   categoria_id: yup.string().required('Categoria é obrigatória'),
   conta_id: yup.string().required('Conta é obrigatória'),
   pago: yup.boolean().required(),
@@ -45,7 +58,9 @@ const schema = yup.object({
 type FormData = {
   descricao: string;
   valor: string;
-  data_pagamento: string;
+  tipo: 'Unica' | 'Mensal';
+  data_pagamento?: string;
+  dia_pagamento?: number | string;
   categoria_id: string;
   conta_id: string;
   pago: boolean;
@@ -69,13 +84,16 @@ export default function DespesasScreen() {
     handleSubmit,
     setValue,
     reset,
+    watch,
     formState: { errors },
-  } = useForm<FormData>({
+  } = useForm<any>({
     resolver: yupResolver(schema),
     defaultValues: {
       descricao: '',
       valor: '',
+      tipo: 'Unica',
       data_pagamento: '',
+      dia_pagamento: undefined,
       categoria_id: '',
       conta_id: '',
       pago: false,
@@ -102,7 +120,7 @@ export default function DespesasScreen() {
     if (despesa) {
       setEditingId(despesa.id!);
       setValue('descricao', despesa.descricao);
-      setValue('valor', String(despesa.valor));
+      setValue('valor', formatCurrencyBR(despesa.valor));
       // convert ISO to DD-MM-YYYY for display
       if (despesa.data_pagamento) {
         const d = new Date(despesa.data_pagamento);
@@ -111,6 +129,8 @@ export default function DespesasScreen() {
       } else {
         setValue('data_pagamento', '');
       }
+      setValue('tipo', despesa.tipo || 'Unica');
+      if (despesa.dia_pagamento) setValue('dia_pagamento', String(despesa.dia_pagamento));
       setValue('categoria_id', despesa.categoria_id || '');
       setValue('conta_id', despesa.conta_id || '');
       setValue('pago', despesa.pago);
@@ -127,27 +147,37 @@ export default function DespesasScreen() {
     reset();
   };
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: any) => {
     try {
       setLoading(true);
-      const valorNumerico = parseFloat(data.valor.replace(/[^\d,]/g, '').replace(',', '.'));
+      const valorNumerico = parseCurrencyToNumber(data.valor);
 
       // convert display DD-MM-YYYY to ISO YYYY-MM-DD
-      const dateParts = data.data_pagamento.split('-');
-      let isoDate = data.data_pagamento;
-      if (dateParts.length === 3) {
-        const [d, m, y] = dateParts;
-        isoDate = `${y}-${m}-${d}`;
+
+      let isoDate: string | undefined = undefined;
+      if (data.tipo === 'Unica' && data.data_pagamento) {
+        const dateParts = data.data_pagamento.split('-');
+        if (dateParts.length === 3) {
+          const [d, m, y] = dateParts;
+          isoDate = `${y}-${m}-${d}`;
+        }
       }
 
-      const despesaData = {
+      const despesaData: any = {
         descricao: data.descricao,
         valor: valorNumerico,
-        data_pagamento: isoDate,
         categoria_id: data.categoria_id,
         conta_id: data.conta_id,
         pago: data.pago,
       };
+
+      if (data.tipo === 'Unica') {
+        despesaData.tipo = 'Unica';
+        if (isoDate) despesaData.data_pagamento = isoDate;
+      } else {
+        despesaData.tipo = 'Mensal';
+        despesaData.dia_pagamento = typeof data.dia_pagamento === 'string' ? parseInt(data.dia_pagamento, 10) : data.dia_pagamento;
+      }
 
       if (editingId) {
         await dispatch(updateDespesa({ id: editingId, data: despesaData })).unwrap();
@@ -205,7 +235,11 @@ export default function DespesasScreen() {
       <View style={styles.itemDetails}>
         <View style={styles.detailRow}>
           <Calendar size={16} color={colors.textSecondary} />
-          <Text style={[styles.detailText, { color: colors.textSecondary }]}> {formatDateToDisplay(item.data_pagamento)}</Text>
+          <Text style={[styles.detailText, { color: colors.textSecondary }]}> 
+            {item.tipo === 'Mensal'
+              ? `Mensal • Dia ${item.dia_pagamento ?? '-'} `
+              : `Única • ${formatDateToDisplay(item.data_pagamento)}`}
+          </Text>
         </View>
         <View style={styles.detailRow}>
           <DollarSign size={16} color={colors.textSecondary} />
@@ -292,7 +326,7 @@ export default function DespesasScreen() {
                     value={value}
                     onChangeText={(text) => onChange(text)}
                     placeholder="Ex: Aluguel, Conta de luz..."
-                    error={errors.descricao?.message}
+                    error={errors.descricao?.message as string}
                   />
                 )}
               />
@@ -304,28 +338,71 @@ export default function DespesasScreen() {
                   <InputMask
                     label="Valor *"
                     value={value}
-                    onChangeText={(text) => onChange(text)}
+                    onChangeText={(text, raw) => {
+                      const source = raw || text || '';
+                      onChange(formatCurrencyFromDigits(String(source)));
+                    }}
                     placeholder="R$ 0,00"
                     keyboardType="numeric"
-                    error={errors.valor?.message}
+                    error={errors.valor?.message as string}
                   />
                 )}
               />
 
               <Controller
                 control={control}
-                name="data_pagamento"
+                name="tipo"
                 render={({ field: { onChange, value } }) => (
-                  <InputMask
-                    label="Data de Pagamento *"
+                  <Picker
+                    label="Tipo de Despesa *"
                     value={value}
-                    onChangeText={(text) => onChange(text)}
-                    mask="99-99-9999"
-                    placeholder="DD-MM-AAAA"
-                    error={errors.data_pagamento?.message}
+                    items={[
+                      { label: 'Despesa Única', value: 'Unica' },
+                      { label: 'Despesa Mensal', value: 'Mensal' },
+                    ]}
+                    onValueChange={(v) => onChange(v)}
+                    placeholder="Selecione tipo"
+                    error={errors.tipo?.message as string}
                   />
                 )}
               />
+
+              {/* show data or day depending on tipo */}
+              {watch('tipo') === 'Unica' && (
+                <Controller
+                  control={control}
+                  name="data_pagamento"
+                  render={({ field: { onChange, value } }) => (
+                    <InputMask
+                      label="Data de Pagamento *"
+                      value={value || ''}
+                      onChangeText={(text) => onChange(text)}
+                      mask="99-99-9999"
+                      placeholder="DD-MM-AAAA"
+                      error={errors.data_pagamento?.message as string}
+                    />
+                  )}
+                />
+              )}
+
+              {watch('tipo') === 'Mensal' && (
+                <Controller
+                  control={control}
+                  name="dia_pagamento"
+                  render={({ field: { onChange, value } }) => (
+                    <InputMask
+                      label="Dia do Mês (1-31)"
+                      value={value ? String(value) : ''}
+                      onChangeText={(text) => onChange(text.replace(/\D/g, ''))}
+                      placeholder="Ex: 5"
+                      keyboardType="numeric"
+                      error={errors.dia_pagamento?.message as string}
+                    />
+                  )}
+                />
+              )}
+
+              {/* data_pagamento is rendered conditionally above when tipo === 'Unica' */}
 
               <Controller
                 control={control}
@@ -337,7 +414,7 @@ export default function DespesasScreen() {
                     items={categoriasDespesa.map((c) => ({ label: c.nome, value: c.id! }))}
                     onValueChange={onChange}
                     placeholder="Selecione uma categoria"
-                    error={errors.categoria_id?.message}
+                    error={errors.categoria_id?.message as string}
                   />
                 )}
               />
@@ -352,7 +429,7 @@ export default function DespesasScreen() {
                     items={contas.map((c) => ({ label: c.nome, value: c.id! }))}
                     onValueChange={onChange}
                     placeholder="Selecione uma conta"
-                    error={errors.conta_id?.message}
+                      error={errors.conta_id?.message as string}
                   />
                 )}
               />

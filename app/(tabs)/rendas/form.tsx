@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { InputMask } from '@/src/components/InputMask';
-import { formatCurrencyBR } from '@/src/utils/format';
+import { formatCurrencyBR, formatCurrencyFromDigits, parseCurrencyToNumber } from '@/src/utils/format';
 import { Picker } from '@/src/components/Picker';
 import { Button } from '@/src/components/Button';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
@@ -107,7 +107,7 @@ export default function RendaFormScreen() {
   const onSubmit = async (data: any) => {
     try {
       setLoading(true);
-      const valorNumerico = parseFloat(data.valor.replace(/[^\d,]/g, '').replace(',', '.'));
+      const valorNumerico = parseCurrencyToNumber(data.valor);
 
       // convert display DD-MM-YYYY to ISO YYYY-MM-DD (only for Unica)
       let isoDate: string | undefined = undefined;
@@ -179,14 +179,9 @@ export default function RendaFormScreen() {
               label="Valor *"
               value={value}
               onChangeText={(text, raw) => {
-                // raw may be provided by MaskedTextInput; fallback to entered text
                 const source = raw || text || '';
-                // keep only digits
-                const digits = String(source).replace(/\D/g, '');
-                if (!digits) return onChange('');
-                const cents = parseInt(digits, 10);
-                const num = cents / 100;
-                onChange(new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num));
+                const formatted = formatCurrencyFromDigits(String(source));
+                onChange(formatted);
               }}
               placeholder="R$ 0,00"
               keyboardType="numeric"

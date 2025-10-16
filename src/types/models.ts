@@ -35,7 +35,11 @@ export interface Despesa {
   id?: string;
   descricao: string;
   valor: number;
-  data_pagamento: string;
+  // For single expense use ISO date (YYYY-MM-DD) in data_pagamento.
+  // For monthly expenses, set tipo = 'Mensal' and use dia_pagamento to store day of month (1-31).
+  data_pagamento?: string;
+  tipo?: 'Unica' | 'Mensal';
+  dia_pagamento?: number;
   categoria_id?: string;
   conta_id?: string;
   pago: boolean;

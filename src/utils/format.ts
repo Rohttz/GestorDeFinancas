@@ -25,3 +25,27 @@ export function formatCurrencyBR(value?: number | string): string {
   // Use Intl.NumberFormat for reliable grouping and decimals
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
 }
+
+/**
+ * Format a numeric-only digits string into a BRL currency string.
+ * Example: '123456' -> 'R$ 1.234,56'
+ */
+export function formatCurrencyFromDigits(digits?: string): string {
+  if (!digits) return '';
+  const onlyDigits = String(digits).replace(/\D/g, '');
+  if (!onlyDigits) return '';
+  const cents = parseInt(onlyDigits, 10);
+  const num = cents / 100;
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
+}
+
+/**
+ * Parse a formatted currency string (e.g. 'R$ 1.234,56' or '1.234,56') into a number (1234.56).
+ */
+export function parseCurrencyToNumber(value?: string | number): number {
+  if (value === undefined || value === null) return 0;
+  if (typeof value === 'number') return value;
+  const cleaned = String(value).replace(/[^0-9,.-]/g, '').replace(/\.(?=\d{3,})/g, '').replace(',', '.');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+}
