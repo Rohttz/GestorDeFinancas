@@ -17,6 +17,7 @@ import { Card } from '@/src/components/Card';
 import { InputMask } from '@/src/components/InputMask';
 import { Picker } from '@/src/components/Picker';
 import { Button } from '@/src/components/Button';
+import { ColorPicker } from '@/src/components/ColorPicker';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import {
   fetchCategorias,
@@ -539,7 +540,7 @@ export default function ConfiguracoesScreen() {
                     control={categoriaControl}
                     name="cor"
                     render={({ field: { onChange, value } }) => (
-                      <InputMask label="Cor" value={value} onChangeText={(text) => onChange(text)} placeholder="#3B82F6" />
+                      <ColorPicker label="Cor" value={value} onChange={onChange} />
                     )}
                   />
                   <Controller
