@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,9 @@ import {
   FlatList,
   Alert,
   RefreshControl,
+  Platform,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { Card } from '@/src/components/Card';
 import { InputMask } from '@/src/components/InputMask';
@@ -54,6 +56,7 @@ type ConfigSection = 'categorias' | 'contas' | 'usuarios' | null;
 export default function ConfiguracoesScreen() {
   const { colors } = useTheme();
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const [activeSection, setActiveSection] = useState<ConfigSection>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -63,7 +66,7 @@ export default function ConfiguracoesScreen() {
   const categorias = useAppSelector((state) => state.categorias.items);
   const contas = useAppSelector((state) => state.contas.items);
   const usuarios = useAppSelector((state) => state.usuarios.items);
-  const authUser = useAppSelector((state) => state.auth.user);
+  const { user: authUser, initializing: authInitializing } = useAppSelector((state) => state.auth);
 
   const { control: categoriaControl, handleSubmit: handleCategoriaSubmit, setValue: setCategoriaValue, reset: resetCategoria } = useForm({
     defaultValues: { nome: '', tipo: 'Receita', cor: '#3B82F6', observacoes: '' },
@@ -86,6 +89,32 @@ export default function ConfiguracoesScreen() {
     dispatch(fetchContas());
     dispatch(fetchUsuarios());
   };
+
+  const resetUIState = useCallback(() => {
+    setActiveSection(null);
+    setModalVisible(false);
+    setEditingId(null);
+  }, []);
+
+  const confirmLogout = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      return window.confirm('Deseja realmente sair da sua conta?');
+    }
+
+    return await new Promise<boolean>((resolve) => {
+      Alert.alert('Encerrar sessão', 'Deseja realmente sair da sua conta?', [
+        { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Sair', style: 'destructive', onPress: () => resolve(true) },
+      ]);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!authInitializing && !authUser) {
+      resetUIState();
+      router.replace('/login' as never);
+    }
+  }, [authInitializing, authUser, resetUIState, router]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -184,18 +213,20 @@ export default function ConfiguracoesScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Encerrar sessão', 'Deseja realmente sair da sua conta?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair',
-        style: 'destructive',
-        onPress: () => {
-          dispatch(logout());
-        },
-      },
-    ]);
-  };
+  const handleLogout = useCallback(async () => {
+    const confirmed = await confirmLogout();
+    if (!confirmed) return;
+
+    try {
+      await dispatch(logout()).unwrap();
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível encerrar a sessão. Tente novamente.');
+    }
+  }, [confirmLogout, dispatch]);
+
+  const handleLogoutPress = useCallback(() => {
+    void handleLogout();
+  }, [handleLogout]);
 
   const handleDelete = (section: ConfigSection, id: string) => {
     Alert.alert('Confirmar exclusão', 'Deseja realmente excluir?', [
@@ -282,7 +313,7 @@ export default function ConfiguracoesScreen() {
                   </Text>
                   <Text style={[styles.menuSubtitle, { color: colors.textSecondary }]}>{authUser.email}</Text>
                 </View>
-                <Button title="Sair" variant="danger" onPress={handleLogout} />
+                <Button title="Sair" variant="danger" onPress={handleLogoutPress} />
               </View>
             </Card>
           )}
