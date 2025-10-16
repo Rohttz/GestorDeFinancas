@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { Card } from '@/src/components/Card';
 import { InputMask } from '@/src/components/InputMask';
@@ -84,9 +84,15 @@ export default function ConfiguracoesScreen() {
     defaultValues: { nome: '', email: '', tipo_acesso: 'Colaborador', status: 'Ativo' },
   });
 
+  const params = useLocalSearchParams<{ section?: string | string[]; action?: string | string[] }>();
+  const sectionHandledRef = useRef(false);
+  const modalHandledRef = useRef(false);
+  const lastActionRef = useRef<string | undefined>(undefined);
+
   useEffect(() => {
     loadData();
   }, []);
+
 
   const loadData = async () => {
     dispatch(fetchCategorias());
@@ -145,34 +151,68 @@ export default function ConfiguracoesScreen() {
     setRefreshing(false);
   };
 
-  const openModal = (section: ConfigSection, item?: any) => {
-    setActiveSection(section);
-    if (item) {
-      setEditingId(item.id);
-      if (section === 'categorias') {
-        setCategoriaValue('nome', item.nome);
-        setCategoriaValue('tipo', item.tipo);
-        setCategoriaValue('cor', item.cor || '#3B82F6');
-        setCategoriaValue('observacoes', item.observacoes || '');
-      } else if (section === 'contas') {
-        setContaValue('nome', item.nome);
-        setContaValue('tipo', item.tipo);
-        setContaValue('saldo', String(item.saldo));
-        setContaValue('observacoes', item.observacoes || '');
-      } else if (section === 'usuarios') {
-        setUsuarioValue('nome', item.nome);
-        setUsuarioValue('email', item.email);
-        setUsuarioValue('tipo_acesso', item.tipo_acesso);
-        setUsuarioValue('status', item.status);
+  const openModal = useCallback(
+    (section: ConfigSection, item?: any) => {
+      setActiveSection(section);
+      if (item) {
+        setEditingId(item.id);
+        if (section === 'categorias') {
+          setCategoriaValue('nome', item.nome);
+          setCategoriaValue('tipo', item.tipo);
+          setCategoriaValue('cor', item.cor || '#3B82F6');
+          setCategoriaValue('observacoes', item.observacoes || '');
+        } else if (section === 'contas') {
+          setContaValue('nome', item.nome);
+          setContaValue('tipo', item.tipo);
+          setContaValue('saldo', String(item.saldo));
+          setContaValue('observacoes', item.observacoes || '');
+        } else if (section === 'usuarios') {
+          setUsuarioValue('nome', item.nome);
+          setUsuarioValue('email', item.email);
+          setUsuarioValue('tipo_acesso', item.tipo_acesso);
+          setUsuarioValue('status', item.status);
+        }
+      } else {
+        setEditingId(null);
+        resetCategoria();
+        resetConta();
+        resetUsuario();
       }
-    } else {
-      setEditingId(null);
-      resetCategoria();
-      resetConta();
-      resetUsuario();
+      setModalVisible(true);
+    },
+    [resetCategoria, resetConta, resetUsuario, setCategoriaValue, setContaValue, setUsuarioValue],
+  );
+
+  useEffect(() => {
+    const resolveParam = (value?: string | string[]) => (Array.isArray(value) ? value[0] : value) ?? undefined;
+    const sectionParam = resolveParam(params.section);
+    const actionParam = resolveParam(params.action);
+    if (actionParam !== lastActionRef.current) {
+      sectionHandledRef.current = false;
+      modalHandledRef.current = false;
+      lastActionRef.current = actionParam;
     }
-    setModalVisible(true);
-  };
+    const isNewContaAction = actionParam?.startsWith('newConta');
+
+    if (sectionParam && ['categorias', 'contas', 'usuarios'].includes(sectionParam)) {
+      const section = sectionParam as ConfigSection;
+      if (!sectionHandledRef.current) {
+        setActiveSection(section);
+        sectionHandledRef.current = true;
+      }
+
+      if (section === 'contas' && isNewContaAction && !modalHandledRef.current) {
+        modalHandledRef.current = true;
+        setTimeout(() => openModal('contas'), 0);
+      }
+    }
+    if (!sectionParam) {
+      sectionHandledRef.current = false;
+    }
+    if (!isNewContaAction) {
+      modalHandledRef.current = false;
+    }
+  }, [openModal, params.action, params.section]);
 
   const closeModal = () => {
     setModalVisible(false);

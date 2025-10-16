@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/src/contexts/ThemeContext';
@@ -56,6 +56,28 @@ export default function RendaFormScreen() {
   const rendas = useAppSelector((state) => state.rendas.items);
   const categorias = useAppSelector((state) => state.categorias.items);
   const contas = useAppSelector((state) => state.contas.items);
+  const contasLoading = useAppSelector((state) => state.contas.loading);
+  const hasPromptedForConta = useRef(false);
+
+  const redirectToContaCadastro = useCallback(() => {
+    router.push({
+      pathname: '/(tabs)/configuracoes',
+      params: { section: 'contas', action: `newConta:${Date.now()}` },
+    });
+  }, [router]);
+
+  const showContaPrompt = useCallback(() => {
+    Alert.alert(
+      'Cadastre uma conta',
+      'Você precisa cadastrar uma conta bancária antes de registrar uma renda. Deseja ir agora para o cadastro de contas?',
+      [
+        { text: 'Agora não', style: 'cancel' },
+        { text: 'Ir para contas', onPress: redirectToContaCadastro },
+      ],
+    );
+  }, [redirectToContaCadastro]);
+
+  const contasLength = contas.length;
 
   const {
     control,
@@ -104,7 +126,22 @@ export default function RendaFormScreen() {
     }
   }, [id, rendas]);
 
+  useEffect(() => {
+    if (id) return;
+    if (contasLoading) return;
+    if (hasPromptedForConta.current) return;
+    if (contasLength === 0) {
+      hasPromptedForConta.current = true;
+      showContaPrompt();
+    }
+  }, [contasLength, contasLoading, id, showContaPrompt]);
+
   const onSubmit = async (data: any) => {
+    if (!id && !contasLoading && contasLength === 0) {
+      showContaPrompt();
+      return;
+    }
+
     try {
       setLoading(true);
       const valorNumerico = parseCurrencyToNumber(data.valor);
@@ -268,7 +305,10 @@ export default function RendaFormScreen() {
               items={contas.map((c) => ({ label: c.nome, value: c.id! }))}
               onValueChange={onChange}
               placeholder="Selecione uma conta"
-              error={errors.conta_id?.message as string}
+              error={
+                (errors.conta_id?.message as string) ||
+                (!id && contasLength === 0 ? 'Cadastre uma conta antes de registrar rendas.' : undefined)
+              }
             />
           )}
         />
@@ -278,6 +318,7 @@ export default function RendaFormScreen() {
             title={id ? 'Atualizar' : 'Cadastrar'}
             onPress={handleSubmit(onSubmit)}
             loading={loading}
+            disabled={!id && contasLength === 0}
           />
         </View>
       </ScrollView>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { Card } from '@/src/components/Card';
 import { Loading } from '@/src/components/Loading';
@@ -17,7 +18,7 @@ import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { fetchRendas, deleteRenda, createRenda, updateRenda } from '@/src/store/slices/rendasSlice';
 import { fetchCategorias } from '@/src/store/slices/categoriasSlice';
 import { fetchContas } from '@/src/store/slices/contasSlice';
-import { Plus, Edit2, Trash2, Calendar, DollarSign, X } from 'lucide-react-native';
+import { Plus, Edit2, Trash2, Calendar, DollarSign, X, CreditCard } from 'lucide-react-native';
 import {
   formatDateToDisplay,
   formatCurrencyBR,
@@ -86,17 +87,20 @@ const defaultFormValues: FormValues = {
 
 const RendasListScreen = () => {
   const { colors } = useTheme();
+  const router = useRouter();
   const dispatch = useAppDispatch();
 
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loadingForm, setLoadingForm] = useState(false);
+  const [missingContaDialogVisible, setMissingContaDialogVisible] = useState(false);
 
   const rendas = useAppSelector((state) => state.rendas.items);
   const loading = useAppSelector((state) => state.rendas.loading);
   const categorias = useAppSelector((state) => state.categorias.items);
   const contas = useAppSelector((state) => state.contas.items);
+  const contasLoading = useAppSelector((state) => state.contas.loading);
 
   const {
     control,
@@ -150,7 +154,24 @@ const RendasListScreen = () => {
   const categoriasReceita = categorias.filter((c) => c.tipo === 'Receita');
   const tipoValue = watch('tipo');
 
+  const handleCloseMissingContaDialog = useCallback(() => {
+    setMissingContaDialogVisible(false);
+  }, []);
+
+  const redirectToContaCadastro = useCallback(() => {
+    setMissingContaDialogVisible(false);
+    router.push({
+      pathname: '/(tabs)/configuracoes',
+      params: { section: 'contas', action: `newConta:${Date.now()}` },
+    });
+  }, [router]);
+
   const openModal = (renda?: Renda) => {
+    if (!renda && !contasLoading && contas.length === 0) {
+      setMissingContaDialogVisible(true);
+      return;
+    }
+
     if (renda) {
       setEditingId(renda.id!);
       setValue('descricao', renda.descricao ?? '');
@@ -437,7 +458,10 @@ const RendasListScreen = () => {
                     items={contas.map((c) => ({ label: c.nome, value: c.id! }))}
                     onValueChange={onChange}
                     placeholder="Selecione uma conta"
-                    error={errors.conta_id?.message as string}
+                    error={
+                      (errors.conta_id?.message as string) ||
+                      (!editingId && contas.length === 0 ? 'Cadastre uma conta antes de registrar rendas.' : undefined)
+                    }
                   />
                 )}
               />
@@ -446,8 +470,42 @@ const RendasListScreen = () => {
                 title={editingId ? 'Atualizar' : 'Cadastrar'}
                 onPress={handleSubmit(onSubmit)}
                 loading={loadingForm}
+                disabled={!editingId && contas.length === 0}
               />
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={missingContaDialogVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseMissingContaDialog}
+      >
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.dialogCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <View style={[styles.dialogIcon, { backgroundColor: colors.primary + '15' }]}> 
+              <CreditCard size={28} color={colors.primary} />
+            </View>
+            <Text style={[styles.dialogTitle, { color: colors.text }]}>Cadastre uma conta primeiro</Text>
+            <Text style={[styles.dialogMessage, { color: colors.textSecondary }]}>Para registrar rendas, você precisa cadastrar pelo menos uma conta bancária. Deseja ir para a tela de contas agora?</Text>
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                style={[styles.dialogSecondaryButton, { borderColor: colors.border }]}
+                onPress={handleCloseMissingContaDialog}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.dialogSecondaryText, { color: colors.textSecondary }]}>Agora não</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.dialogPrimaryButton, { backgroundColor: colors.primary }]}
+                onPress={redirectToContaCadastro}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.dialogPrimaryText}>Ir para contas</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -573,5 +631,66 @@ const styles = StyleSheet.create({
   modalScroll: {
     paddingHorizontal: 16,
     paddingBottom: 40,
+  },
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  dialogCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 16,
+  },
+  dialogIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dialogTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  dialogMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  dialogSecondaryButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogSecondaryText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  dialogPrimaryButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
