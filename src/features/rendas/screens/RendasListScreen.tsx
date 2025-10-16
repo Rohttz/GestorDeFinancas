@@ -28,7 +28,7 @@ import { Renda } from '@/src/types/models';
 import { InputMask } from '@/src/components/InputMask';
 import { Picker } from '@/src/components/Picker';
 import { Button } from '@/src/components/Button';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useDialog } from '@/src/contexts/DialogContext';
@@ -108,12 +108,15 @@ const RendasListScreen = () => {
     handleSubmit,
     setValue,
     reset,
-    watch,
+    clearErrors,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: yupResolver(schema),
     defaultValues: defaultFormValues,
+    shouldUnregister: true,
   });
+
+  const tipoValue = useWatch({ control, name: 'tipo' }) ?? 'Unica';
 
   useEffect(() => {
     loadData();
@@ -154,7 +157,16 @@ const RendasListScreen = () => {
   };
 
   const categoriasReceita = categorias.filter((c) => c.tipo === 'Receita');
-  const tipoValue = watch('tipo');
+
+  useEffect(() => {
+    if (tipoValue === 'Mensal') {
+      setValue('data_recebimento', '');
+      clearErrors('data_recebimento');
+    } else {
+      setValue('dia_recebimento', '');
+      clearErrors('dia_recebimento');
+    }
+  }, [tipoValue, setValue, clearErrors]);
 
   const handleCloseMissingContaDialog = useCallback(() => {
     setMissingContaDialogVisible(false);
@@ -401,37 +413,39 @@ const RendasListScreen = () => {
                 )}
               />
 
-              <Controller
-                control={control}
-                name="data_recebimento"
-                render={({ field: { onChange, value } }) => (
-                  <InputMask
-                    label="Data de Recebimento"
-                    value={value}
-                    onChangeText={(text) => onChange(text)}
-                    mask="99-99-9999"
-                    placeholder="DD-MM-AAAA"
-                    editable={tipoValue === 'Unica'}
-                    error={errors.data_recebimento?.message as string}
-                  />
-                )}
-              />
+              {tipoValue === 'Unica' && (
+                <Controller
+                  control={control}
+                  name="data_recebimento"
+                  render={({ field: { onChange, value } }) => (
+                    <InputMask
+                      label="Data de Recebimento *"
+                      value={value}
+                      onChangeText={(text) => onChange(text)}
+                      mask="99-99-9999"
+                      placeholder="DD-MM-AAAA"
+                      error={errors.data_recebimento?.message as string}
+                    />
+                  )}
+                />
+              )}
 
-              <Controller
-                control={control}
-                name="dia_recebimento"
-                render={({ field: { onChange, value } }) => (
-                  <InputMask
-                    label="Dia do Mês (1-31)"
-                    value={value}
-                    onChangeText={(text) => onChange(text.replace(/\D/g, ''))}
-                    placeholder="Ex: 5"
-                    keyboardType="numeric"
-                    editable={tipoValue === 'Mensal'}
-                    error={errors.dia_recebimento?.message as string}
-                  />
-                )}
-              />
+              {tipoValue === 'Mensal' && (
+                <Controller
+                  control={control}
+                  name="dia_recebimento"
+                  render={({ field: { onChange, value } }) => (
+                    <InputMask
+                      label="Dia do Mês (1-31)"
+                      value={value}
+                      onChangeText={(text) => onChange(text.replace(/\D/g, ''))}
+                      placeholder="Ex: 5"
+                      keyboardType="numeric"
+                      error={errors.dia_recebimento?.message as string}
+                    />
+                  )}
+                />
+              )}
 
               <Controller
                 control={control}

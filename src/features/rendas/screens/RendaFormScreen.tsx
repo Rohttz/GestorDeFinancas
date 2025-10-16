@@ -10,7 +10,7 @@ import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { createRenda, updateRenda, fetchRendas } from '@/src/store/slices/rendasSlice';
 import { fetchCategorias } from '@/src/store/slices/categoriasSlice';
 import { fetchContas } from '@/src/store/slices/contasSlice';
-import { useForm, Controller, Resolver } from 'react-hook-form';
+import { useForm, Controller, Resolver, useWatch } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useDialog } from '@/src/contexts/DialogContext';
@@ -74,7 +74,6 @@ const RendaFormScreen = () => {
     control,
     handleSubmit,
     setValue,
-    watch,
     clearErrors,
     formState: { errors },
   } = useForm<FormData>({
@@ -91,7 +90,7 @@ const RendaFormScreen = () => {
     shouldUnregister: true,
   });
 
-  const tipoValue = watch('tipo');
+  const tipoValue = useWatch({ control, name: 'tipo' }) ?? 'Unica';
 
   const redirectToContaCadastro = useCallback(() => {
     router.push({
