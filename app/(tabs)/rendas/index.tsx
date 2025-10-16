@@ -18,6 +18,7 @@ import { fetchRendas, deleteRenda } from '@/src/store/slices/rendasSlice';
 import { fetchCategorias } from '@/src/store/slices/categoriasSlice';
 import { fetchContas } from '@/src/store/slices/contasSlice';
 import { Plus, Edit2, Trash2, Calendar, DollarSign } from 'lucide-react-native';
+import { formatDateToDisplay, formatCurrencyBR } from '@/src/utils/format';
 import { Renda } from '@/src/types/models';
 
 export default function RendasListScreen() {
@@ -72,21 +73,21 @@ export default function RendasListScreen() {
     <Card style={{ marginBottom: 12 }} animated>
       <View style={styles.itemHeader}>
         <Text style={[styles.itemTitle, { color: colors.text }]}>{item.descricao}</Text>
-        <Text style={[styles.itemValue, { color: colors.success }]}>
-          R$ {Number(item.valor).toFixed(2)}
-        </Text>
+        <Text style={[styles.itemValue, { color: colors.success }]}>{formatCurrencyBR(item.valor)}</Text>
       </View>
 
       <View style={styles.itemDetails}>
         <View style={styles.detailRow}>
           <Calendar size={16} color={colors.textSecondary} />
-          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-            {new Date(item.data_recebimento).toLocaleDateString('pt-BR')}
+          <Text style={[styles.detailText, { color: colors.textSecondary }]}> 
+            {item.tipo === 'Mensal'
+              ? `Mensal • Dia ${item.dia_recebimento ?? '-'} `
+              : `Única • ${formatDateToDisplay(item.data_recebimento)}`}
           </Text>
         </View>
         <View style={styles.detailRow}>
           <DollarSign size={16} color={colors.textSecondary} />
-          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
+          <Text style={[styles.detailText, { color: colors.textSecondary }]}> 
             {getCategoriaNome(item.categoria_id)} • {getContaNome(item.conta_id)}
           </Text>
         </View>

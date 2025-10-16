@@ -27,6 +27,7 @@ import {
 import { fetchCategorias } from '@/src/store/slices/categoriasSlice';
 import { fetchContas } from '@/src/store/slices/contasSlice';
 import { Plus, Edit2, Trash2, Calendar, DollarSign, X } from 'lucide-react-native';
+import { formatDateToDisplay, formatCurrencyBR } from '@/src/utils/format';
 import { Despesa } from '@/src/types/models';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -102,7 +103,14 @@ export default function DespesasScreen() {
       setEditingId(despesa.id!);
       setValue('descricao', despesa.descricao);
       setValue('valor', String(despesa.valor));
-      setValue('data_pagamento', despesa.data_pagamento);
+      // convert ISO to DD-MM-YYYY for display
+      if (despesa.data_pagamento) {
+        const d = new Date(despesa.data_pagamento);
+        const display = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+        setValue('data_pagamento', display);
+      } else {
+        setValue('data_pagamento', '');
+      }
       setValue('categoria_id', despesa.categoria_id || '');
       setValue('conta_id', despesa.conta_id || '');
       setValue('pago', despesa.pago);
@@ -124,10 +132,18 @@ export default function DespesasScreen() {
       setLoading(true);
       const valorNumerico = parseFloat(data.valor.replace(/[^\d,]/g, '').replace(',', '.'));
 
+      // convert display DD-MM-YYYY to ISO YYYY-MM-DD
+      const dateParts = data.data_pagamento.split('-');
+      let isoDate = data.data_pagamento;
+      if (dateParts.length === 3) {
+        const [d, m, y] = dateParts;
+        isoDate = `${y}-${m}-${d}`;
+      }
+
       const despesaData = {
         descricao: data.descricao,
         valor: valorNumerico,
-        data_pagamento: data.data_pagamento,
+        data_pagamento: isoDate,
         categoria_id: data.categoria_id,
         conta_id: data.conta_id,
         pago: data.pago,
@@ -183,17 +199,13 @@ export default function DespesasScreen() {
             {item.pago ? 'Pago' : 'Pendente'}
           </Text>
         </View>
-        <Text style={[styles.itemValue, { color: colors.danger }]}>
-          R$ {Number(item.valor).toFixed(2)}
-        </Text>
+          <Text style={[styles.itemValue, { color: colors.danger }]}>{formatCurrencyBR(item.valor)}</Text>
       </View>
 
       <View style={styles.itemDetails}>
         <View style={styles.detailRow}>
           <Calendar size={16} color={colors.textSecondary} />
-          <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-            {new Date(item.data_pagamento).toLocaleDateString('pt-BR')}
-          </Text>
+          <Text style={[styles.detailText, { color: colors.textSecondary }]}> {formatDateToDisplay(item.data_pagamento)}</Text>
         </View>
         <View style={styles.detailRow}>
           <DollarSign size={16} color={colors.textSecondary} />
@@ -308,8 +320,8 @@ export default function DespesasScreen() {
                     label="Data de Pagamento *"
                     value={value}
                     onChangeText={(text) => onChange(text)}
-                    mask="9999-99-99"
-                    placeholder="AAAA-MM-DD"
+                    mask="99-99-9999"
+                    placeholder="DD-MM-AAAA"
                     error={errors.data_pagamento?.message}
                   />
                 )}

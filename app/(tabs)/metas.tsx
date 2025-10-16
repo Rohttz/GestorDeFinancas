@@ -19,6 +19,7 @@ import { Loading } from '@/src/components/Loading';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { fetchMetas, createMeta, updateMeta, deleteMeta } from '@/src/store/slices/metasSlice';
 import { Plus, Edit2, Trash2, Calendar, Target as TargetIcon, X } from 'lucide-react-native';
+import { formatDateToDisplay, formatCurrencyBR } from '@/src/utils/format';
 import { Meta } from '@/src/types/models';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -84,7 +85,14 @@ export default function MetasScreen() {
       setValue('nome', meta.nome);
       setValue('valor_alvo', String(meta.valor_alvo));
       setValue('valor_atual', String(meta.valor_atual));
-      setValue('prazo_final', meta.prazo_final);
+      // convert ISO to DD-MM-YYYY for display
+      if (meta.prazo_final) {
+        const d = new Date(meta.prazo_final);
+        const display = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+        setValue('prazo_final', display);
+      } else {
+        setValue('prazo_final', '');
+      }
       setValue('status', meta.status);
     } else {
       setEditingId(null);
@@ -105,11 +113,19 @@ export default function MetasScreen() {
       const valorAlvo = parseFloat(data.valor_alvo.replace(/[^\d,]/g, '').replace(',', '.'));
       const valorAtual = parseFloat(data.valor_atual.replace(/[^\d,]/g, '').replace(',', '.'));
 
+      // convert display DD-MM-YYYY to ISO YYYY-MM-DD
+      const dateParts = data.prazo_final.split('-');
+      let isoPrazo = data.prazo_final;
+      if (dateParts.length === 3) {
+        const [d, m, y] = dateParts;
+        isoPrazo = `${y}-${m}-${d}`;
+      }
+
       const metaData = {
         nome: data.nome,
         valor_alvo: valorAlvo,
         valor_atual: valorAtual,
-        prazo_final: data.prazo_final,
+        prazo_final: isoPrazo,
         status: data.status as 'Em andamento' | 'Concluída' | 'Atrasada',
       };
 
@@ -178,7 +194,7 @@ export default function MetasScreen() {
           <View style={styles.detailRow}>
             <TargetIcon size={16} color={colors.textSecondary} />
             <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-              R$ {Number(item.valor_atual).toFixed(2)} de R$ {Number(item.valor_alvo).toFixed(2)}
+              {formatCurrencyBR(item.valor_atual)} de {formatCurrencyBR(item.valor_alvo)}
             </Text>
           </View>
           <View style={styles.detailRow}>
@@ -308,8 +324,8 @@ export default function MetasScreen() {
                     label="Prazo Final *"
                     value={value}
                     onChangeText={(text) => onChange(text)}
-                    mask="9999-99-99"
-                    placeholder="AAAA-MM-DD"
+                    mask="99-99-9999"
+                    placeholder="DD-MM-AAAA"
                     error={errors.prazo_final?.message}
                   />
                 )}

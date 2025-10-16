@@ -21,7 +21,11 @@ export interface Renda {
   id?: string;
   descricao: string;
   valor: number;
-  data_recebimento: string;
+  // For a single income use ISO date (YYYY-MM-DD) in data_recebimento.
+  // For monthly incomes, set tipo = 'Mensal' and use dia_recebimento to store day of month (1-31).
+  data_recebimento?: string;
+  tipo?: 'Unica' | 'Mensal';
+  dia_recebimento?: number;
   categoria_id?: string;
   conta_id?: string;
   created_at?: string;

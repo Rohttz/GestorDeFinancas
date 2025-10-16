@@ -45,6 +45,7 @@ import {
   User,
   X,
 } from 'lucide-react-native';
+import { formatCurrencyBR } from '@/src/utils/format';
 import { useForm, Controller } from 'react-hook-form';
 
 type ConfigSection = 'categorias' | 'contas' | 'usuarios' | null;
@@ -219,9 +220,9 @@ export default function ConfiguracoesScreen() {
       <View style={styles.listItem}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.itemTitle, { color: colors.text }]}>{item.nome}</Text>
-          <Text style={[styles.itemSubtitle, { color: colors.textSecondary }]}>
-            {item.tipo} • R$ {Number(item.saldo).toFixed(2)}
-          </Text>
+            <Text style={[styles.itemSubtitle, { color: colors.textSecondary }]}> 
+              {item.tipo} • {formatCurrencyBR(item.saldo)}
+            </Text>
         </View>
         <TouchableOpacity onPress={() => openModal('contas', item)} style={styles.iconButton}>
           <Edit2 size={18} color={colors.primary} />

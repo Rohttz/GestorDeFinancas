@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { Card } from '@/src/components/Card';
+import { InputMask } from '@/src/components/InputMask';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { fetchRendas } from '@/src/store/slices/rendasSlice';
 import { fetchDespesas } from '@/src/store/slices/despesasSlice';
@@ -18,12 +19,21 @@ import { fetchMetas } from '@/src/store/slices/metasSlice';
 import { PieChart } from 'react-native-chart-kit';
 import { TrendingUp, TrendingDown, Target, DollarSign, Moon, Sun } from 'lucide-react-native';
 import { MotiView } from 'moti';
+import { formatCurrencyBR } from '@/src/utils/format';
 
 export default function DashboardScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const dispatch = useAppDispatch();
   const [refreshing, setRefreshing] = useState(false);
-  const [periodo, setPeriodo] = useState<'semana' | 'mes' | 'ano'>('mes');
+  const [dataInicial, setDataInicial] = useState<string>(() => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    return `${String(first.getDate()).padStart(2, '0')}-${String(first.getMonth() + 1).padStart(2, '0')}-${first.getFullYear()}`;
+  });
+  const [dataFinal, setDataFinal] = useState<string>(() => {
+    const now = new Date();
+    return `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
+  });
 
   const rendas = useAppSelector((state) => state.rendas.items);
   const despesas = useAppSelector((state) => state.despesas.items);
@@ -47,20 +57,42 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  const filterByPeriod = (date: string) => {
-    const itemDate = new Date(date);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - itemDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (periodo === 'semana') return diffDays <= 7;
-    if (periodo === 'mes') return diffDays <= 30;
-    if (periodo === 'ano') return diffDays <= 365;
-    return true;
+  const parseDateString = (s: string): Date | null => {
+    if (!s) return null;
+    // Support DD-MM-YYYY or YYYY-MM-DD
+    const partsDash = s.split('-');
+    if (partsDash.length === 3) {
+      // detect order by length of first part
+      if (partsDash[0].length === 4) {
+        // YYYY-MM-DD
+        const [y, m, d] = partsDash;
+        const date = new Date(Number(y), Number(m) - 1, Number(d));
+        return isNaN(date.getTime()) ? null : date;
+      } else {
+        // DD-MM-YYYY
+        const [d, m, y] = partsDash;
+        const date = new Date(Number(y), Number(m) - 1, Number(d));
+        return isNaN(date.getTime()) ? null : date;
+      }
+    }
+    return null;
   };
 
-  const rendasFiltradas = rendas.filter((r) => filterByPeriod(r.data_recebimento));
-  const despesasFiltradas = despesas.filter((d) => filterByPeriod(d.data_pagamento));
+  const filterByRange = (dateStr?: string | null) => {
+    if (!dateStr) return false;
+    const itemDate = parseDateString(dateStr) || new Date(dateStr);
+    if (!itemDate || isNaN(itemDate.getTime())) return false;
+    const start = parseDateString(dataInicial);
+    const end = parseDateString(dataFinal);
+    if (!start || !end) return true;
+    // normalize time to include entire day
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    return itemDate >= start && itemDate <= end;
+  };
+
+  const rendasFiltradas = rendas.filter((r) => filterByRange(r.data_recebimento));
+  const despesasFiltradas = despesas.filter((d) => filterByRange(d.data_pagamento));
 
   const totalReceitas = rendasFiltradas.reduce((sum, r) => sum + Number(r.valor), 0);
   const totalDespesas = despesasFiltradas.reduce((sum, d) => sum + Number(d.valor), 0);
@@ -98,29 +130,28 @@ export default function DashboardScreen() {
         style={styles.scrollView}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View style={styles.periodContainer}>
-          {(['semana', 'mes', 'ano'] as const).map((p) => (
-            <TouchableOpacity
-              key={p}
-              style={[
-                styles.periodButton,
-                {
-                  backgroundColor: periodo === p ? colors.primary : colors.card,
-                  borderColor: colors.border,
-                },
-              ]}
-              onPress={() => setPeriodo(p)}
-            >
-              <Text
-                style={[
-                  styles.periodText,
-                  { color: periodo === p ? '#FFFFFF' : colors.text },
-                ]}
-              >
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View style={[styles.periodContainer]}> 
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <InputMask
+              label="Data inicial"
+              value={dataInicial}
+              onChangeText={(text) => setDataInicial(text)}
+              mask="99-99-9999"
+              placeholder="DD-MM-AAAA"
+              style={{ width: '100%' }}
+            />
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <InputMask
+              label="Data final"
+              value={dataFinal}
+              onChangeText={(text) => setDataFinal(text)}
+              mask="99-99-9999"
+              placeholder="DD-MM-AAAA"
+              style={{ width: '100%' }}
+            />
+          </View>
         </View>
 
         <View style={styles.cardsRow}>
@@ -128,7 +159,7 @@ export default function DashboardScreen() {
             <TrendingUp size={24} color={colors.success} />
             <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Receitas</Text>
             <Text style={[styles.summaryValue, { color: colors.success }]}>
-              R$ {totalReceitas.toFixed(2)}
+              {formatCurrencyBR(totalReceitas)}
             </Text>
           </Card>
 
@@ -136,7 +167,7 @@ export default function DashboardScreen() {
             <TrendingDown size={24} color={colors.danger} />
             <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Despesas</Text>
             <Text style={[styles.summaryValue, { color: colors.danger }]}>
-              R$ {totalDespesas.toFixed(2)}
+              {formatCurrencyBR(totalDespesas)}
             </Text>
           </Card>
         </View>
@@ -150,7 +181,7 @@ export default function DashboardScreen() {
               { color: saldo >= 0 ? colors.success : colors.danger },
             ]}
           >
-            R$ {saldo.toFixed(2)}
+            {formatCurrencyBR(saldo)}
           </Text>
         </Card>
 
@@ -216,7 +247,8 @@ const styles = StyleSheet.create({
   },
   periodContainer: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
   periodButton: {
