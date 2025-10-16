@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   ScrollView,
+  Switch,
 } from 'react-native';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { Card } from '@/src/components/Card';
@@ -30,20 +31,38 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 
-const schema = yup.object({
-  nome: yup.string().required('Nome é obrigatório'),
-  valor_alvo: yup.string().required('Valor alvo é obrigatório'),
-  valor_atual: yup.string().required('Valor atual é obrigatório'),
-  prazo_final: yup.string().required('Prazo final é obrigatório'),
-  status: yup.string().required('Status é obrigatório'),
-});
-
 type FormData = {
   nome: string;
   valor_alvo: string;
   valor_atual: string;
   prazo_final: string;
   status: string;
+  sem_prazo: boolean;
+};
+
+const schema: yup.ObjectSchema<FormData> = yup.object({
+  nome: yup.string().required('Nome é obrigatório'),
+  valor_alvo: yup.string().required('Valor alvo é obrigatório'),
+  valor_atual: yup.string().required('Valor atual é obrigatório'),
+  prazo_final: yup
+    .string()
+    .when('sem_prazo', {
+      is: true,
+      then: (schema) => schema.optional().default(''),
+      otherwise: (schema) => schema.required('Prazo final é obrigatório'),
+    })
+    .default(''),
+  status: yup.string().required('Status é obrigatório'),
+  sem_prazo: yup.boolean().default(false),
+});
+
+const defaultFormValues: FormData = {
+  nome: '',
+  valor_alvo: '',
+  valor_atual: '',
+  prazo_final: '',
+  status: 'Em andamento',
+  sem_prazo: false,
 };
 
 export default function MetasScreen() {
@@ -62,17 +81,14 @@ export default function MetasScreen() {
     handleSubmit,
     setValue,
     reset,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: yupResolver(schema),
-    defaultValues: {
-      nome: '',
-      valor_alvo: '',
-      valor_atual: '',
-      prazo_final: '',
-      status: 'Em andamento',
-    },
+    defaultValues: defaultFormValues,
   });
+
+  const semPrazo = watch('sem_prazo');
 
   useEffect(() => {
     dispatch(fetchMetas());
@@ -90,11 +106,13 @@ export default function MetasScreen() {
       setValue('nome', meta.nome);
       setValue('valor_alvo', formatCurrencyBR(meta.valor_alvo));
       setValue('valor_atual', formatCurrencyBR(meta.valor_atual));
-      setValue('prazo_final', formatDateToDisplay(meta.prazo_final));
+      const hasDeadline = Boolean(meta.prazo_final);
+      setValue('sem_prazo', !hasDeadline);
+      setValue('prazo_final', hasDeadline ? formatDateToDisplay(meta.prazo_final) : '');
       setValue('status', meta.status);
     } else {
       setEditingId(null);
-      reset();
+      reset(defaultFormValues);
     }
     setModalVisible(true);
   };
@@ -102,21 +120,24 @@ export default function MetasScreen() {
   const closeModal = () => {
     setModalVisible(false);
     setEditingId(null);
-    reset();
+    reset(defaultFormValues);
   };
 
   const onSubmit = async (data: FormData) => {
     try {
       setLoading(true);
-  const valorAlvo = parseCurrencyToNumber(data.valor_alvo);
-  const valorAtual = parseCurrencyToNumber(data.valor_atual);
+      const valorAlvo = parseCurrencyToNumber(data.valor_alvo);
+      const valorAtual = parseCurrencyToNumber(data.valor_atual);
 
       // convert display DD-MM-YYYY to ISO YYYY-MM-DD
-      const dateParts = data.prazo_final.split('-');
-      let isoPrazo = data.prazo_final;
-      if (dateParts.length === 3) {
-        const [d, m, y] = dateParts;
-        isoPrazo = `${y}-${m}-${d}`;
+      let isoPrazo: string | undefined;
+      if (!data.sem_prazo && data.prazo_final) {
+        const dateParts = data.prazo_final.split('-');
+        isoPrazo = data.prazo_final;
+        if (dateParts.length === 3) {
+          const [d, m, y] = dateParts;
+          isoPrazo = `${y}-${m}-${d}`;
+        }
       }
 
       const metaData = {
@@ -160,7 +181,8 @@ export default function MetasScreen() {
   };
 
   const renderItem = ({ item }: { item: Meta }) => {
-    const progresso = (Number(item.valor_atual) / Number(item.valor_alvo)) * 100;
+  const progresso = (Number(item.valor_atual) / Number(item.valor_alvo)) * 100;
+  const prazoLabel = item.prazo_final ? formatDateToDisplay(item.prazo_final) : 'Sem prazo final';
 
     return (
       <Card style={{ marginBottom: 12 }} animated>
@@ -197,9 +219,7 @@ export default function MetasScreen() {
           </View>
           <View style={styles.detailRow}>
             <Calendar size={16} color={colors.textSecondary} />
-            <Text style={[styles.detailText, { color: colors.textSecondary }]}>
-              Prazo: {formatDateToDisplay(item.prazo_final) || '-'}
-            </Text>
+            <Text style={[styles.detailText, { color: colors.textSecondary }]}>Prazo: {prazoLabel}</Text>
           </View>
         </View>
 
@@ -322,16 +342,43 @@ export default function MetasScreen() {
 
               <Controller
                 control={control}
+                name="sem_prazo"
+                render={({ field: { value, onChange } }) => (
+                  <View style={styles.switchRow}>
+                    <Text style={[styles.switchLabel, { color: colors.textSecondary }]}>Sem prazo final</Text>
+                    <Switch
+                      value={value}
+                      onValueChange={(checked) => {
+                        onChange(checked);
+                        if (checked) {
+                          setValue('prazo_final', '');
+                        }
+                      }}
+                      thumbColor={value ? colors.primary : colors.border}
+                      trackColor={{ false: colors.border, true: colors.primary + '70' }}
+                    />
+                  </View>
+                )}
+              />
+
+              <Controller
+                control={control}
                 name="prazo_final"
                 render={({ field: { onChange, value } }) => (
-                  <InputMask
-                    label="Prazo Final *"
-                    value={value}
-                    onChangeText={(text) => onChange(text)}
-                    mask="99-99-9999"
-                    placeholder="DD-MM-AAAA"
-                    error={errors.prazo_final?.message}
-                  />
+                  !semPrazo ? (
+                    <InputMask
+                      label="Prazo Final"
+                      value={value}
+                      onChangeText={(text) => onChange(text)}
+                      mask="99-99-9999"
+                      placeholder="DD-MM-AAAA"
+                      error={errors.prazo_final?.message}
+                    />
+                  ) : (
+                    <View style={styles.noDeadlineContainer}>
+                      <Text style={[styles.noDeadlineText, { color: colors.textSecondary }]}>Prazo final desativado para esta meta.</Text>
+                    </View>
+                  )
                 )}
               />
 
@@ -500,5 +547,23 @@ const styles = StyleSheet.create({
   modalScroll: {
     paddingHorizontal: 16,
     paddingBottom: 20,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  switchLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  noDeadlineContainer: {
+    marginBottom: 16,
+    paddingVertical: 12,
+  },
+  noDeadlineText: {
+    fontSize: 14,
+    fontStyle: 'italic',
   },
 });

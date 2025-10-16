@@ -55,7 +55,7 @@ export interface Meta {
   nome: string;
   valor_alvo: number;
   valor_atual: number;
-  prazo_final: string;
+  prazo_final?: string;
   status: 'Em andamento' | 'Concluída' | 'Atrasada';
   created_at?: string;
   user_id?: string;
