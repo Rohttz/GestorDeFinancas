@@ -10,7 +10,7 @@ import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { createRenda, updateRenda, fetchRendas } from '@/src/store/slices/rendasSlice';
 import { fetchCategorias } from '@/src/store/slices/categoriasSlice';
 import { fetchContas } from '@/src/store/slices/contasSlice';
-import { useForm, Controller, SubmitHandler, Resolver } from 'react-hook-form';
+import { useForm, Controller, Resolver } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useDialog } from '@/src/contexts/DialogContext';
@@ -75,6 +75,7 @@ const RendaFormScreen = () => {
     handleSubmit,
     setValue,
     watch,
+    clearErrors,
     formState: { errors },
   } = useForm<FormData>({
     resolver: yupResolver(schema) as Resolver<FormData>,
@@ -87,7 +88,10 @@ const RendaFormScreen = () => {
       categoria_id: '',
       conta_id: '',
     },
+    shouldUnregister: true,
   });
+
+  const tipoValue = watch('tipo');
 
   const redirectToContaCadastro = useCallback(() => {
     router.push({
@@ -155,6 +159,13 @@ const RendaFormScreen = () => {
     }
   }, [contasLength, contasLoading, id, showContaPrompt]);
 
+  useEffect(() => {
+    if (tipoValue !== 'Mensal') {
+      setValue('dia_recebimento', '');
+      clearErrors('dia_recebimento');
+    }
+  }, [tipoValue, setValue, clearErrors]);
+
   const onSubmit = useCallback(
     async (formData: FormData) => {
       if (!id && !contasLoading && contasLength === 0) {
@@ -215,7 +226,6 @@ const RendaFormScreen = () => {
   );
 
   const categoriasReceita = categorias.filter((c) => c.tipo === 'Receita');
-  const tipoValue = watch('tipo');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

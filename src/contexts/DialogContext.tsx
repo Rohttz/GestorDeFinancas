@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
-import { Modal, View, Text, StyleSheet, Platform } from 'react-native';
+import { Modal, View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { Button } from '@/src/components/Button';
 
@@ -102,7 +102,7 @@ export const DialogProvider: React.FC<React.PropsWithChildren> = ({ children }) 
   return (
     <DialogContext.Provider value={value}>
       {children}
-      <Modal visible={state.visible} transparent animationType={Platform.OS === 'ios' ? 'fade' : 'slide'} onRequestClose={handleRequestClose}>
+      <Modal visible={state.visible} transparent animationType="fade" onRequestClose={handleRequestClose}>
         <View style={styles.overlay}>
           <View style={[styles.dialog, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             {state.title && <Text style={[styles.title, { color: colors.text }]}>{state.title}</Text>}
@@ -135,7 +135,7 @@ export const useDialog = () => {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
