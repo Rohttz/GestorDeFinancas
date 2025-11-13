@@ -21,7 +21,6 @@ Se desejar validar a API real utilizada pelo app:
 cd backend
 npm install
 npm run migration:run
-npm run seed # opcional, cria dados demo
 npm run start:dev
 ```
 
