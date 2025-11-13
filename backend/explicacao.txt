@@ -1,0 +1,19 @@
+Arquitetura adotada para o backend do Gestor de Finanças:
+
+1. **Framework**: NestJS foi escolhido pela organização modular, injeção de dependências nativa e sinergia com TypeScript. Cada domínio (usuários, contas, categorias, rendas, despesas, metas e dashboard) possui módulo próprio com controller, serviço, DTOs e entidades, separados dentro de `src/modules`.
+
+2. **Persistência**: TypeORM conecta-se ao PostgreSQL. As entidades seguem nomeação em português para aderir ao enunciado. Uma entidade base `BaseEntity` centraliza colunas de auditoria (`created_at` e `updated_at`). O `AppDataSource` e o `TypeOrmModule.forRootAsync` usam variáveis de ambiente validadas com `class-validator`.
+
+3. **Regras de negócio**: Quinze regras foram implementadas diretamente nos serviços. Para erros de validação negocial, a exceção personalizada `BusinessRuleException` (BadRequestException) padroniza respostas amigáveis. As regras cobrem unicidade de email, validação de saldos, limites de categoria, metas, parcelas, usuários inativos, vínculos de metas/contas, entre outras.
+
+4. **Dashboard**: O módulo `dashboard` compõe sumário com saldo total, receitas/despesas do mês, progresso de metas e próximas despesas, expondo `GET /dashboard?usuarioId=...`.
+
+5. **Migrations & Seeds**: `src/database/migrations/1700000000000_initial_schema.ts` cria as tabelas e enums necessários, incluindo extensão `uuid-ossp`. O script `npm run seed` popula um cenário básico para testes com usuário, conta, categorias, meta, renda e despesa.
+
+6. **Validações**: DTOs utilizam `class-validator` para checar tipos, formatos (`IsUUID`, `IsPositive`, etc.). A pipeline global `ValidationPipe` aplicada em `main.ts` remove atributos não permitidos e converte tipos primitivos.
+
+7. **Integração com o App Expo**: A API foi projetada para substituir os dados mockados do front. Os endpoints expõem respostas ricas (com entidades, somatórios e mensagens) para alimentar Redux/Context do aplicativo. Erros de regra retornam mensagens descritivas para serem exibidas nas telas.
+
+8. **Ferramentas**: ESLint e Prettier seguem o estilo Nest padrão. Scripts `migration:*`, `seed` e `start:dev` facilitam a rotina de desenvolvimento. A coleção Postman (`backend/postman/gestor-financas.postman_collection.json`) agiliza testes manuais.
+
+Essa estrutura atende os requisitos da disciplina, garante separação de responsabilidades e facilita futuras evoluções (ex.: autenticação JWT, testes automatizados, integrações externas).

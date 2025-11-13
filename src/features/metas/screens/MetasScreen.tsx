@@ -81,6 +81,7 @@ const MetasScreen = () => {
     control,
     handleSubmit,
     setValue,
+    setError,
     reset,
     watch,
     formState: { errors },
@@ -130,6 +131,36 @@ const MetasScreen = () => {
       const valorAlvo = parseCurrencyToNumber(data.valor_alvo);
       const valorAtual = parseCurrencyToNumber(data.valor_atual);
 
+      if (!Number.isFinite(valorAlvo) || valorAlvo <= 0) {
+        setError('valor_alvo', {
+          type: 'manual',
+          message: 'Informe um valor alvo maior que zero.',
+        });
+        await showDialog('Valor alvo inválido', 'Informe um valor alvo maior que zero para continuar.');
+        setLoading(false);
+        return;
+      }
+
+      if (!Number.isFinite(valorAtual) || valorAtual < 0) {
+        setError('valor_atual', {
+          type: 'manual',
+          message: 'O valor atual não pode ser negativo.',
+        });
+        await showDialog('Valor atual inválido', 'O valor atual não pode ser negativo.');
+        setLoading(false);
+        return;
+      }
+
+      if (valorAtual > valorAlvo) {
+        setError('valor_atual', {
+          type: 'manual',
+          message: 'O progresso não pode exceder o valor alvo.',
+        });
+        await showDialog('Progresso inválido', 'O valor atual não pode ser maior que o valor alvo.');
+        setLoading(false);
+        return;
+      }
+
       let isoPrazo: string | undefined;
       if (!data.sem_prazo && data.prazo_final) {
         const dateParts = data.prazo_final.split('-');
@@ -157,7 +188,9 @@ const MetasScreen = () => {
       }
       closeModal();
     } catch (error) {
-      await showDialog('Erro', 'Ocorreu um erro ao salvar a meta.');
+      console.error('Erro ao salvar meta', error);
+      const message = error instanceof Error ? error.message : 'Ocorreu um erro ao salvar a meta.';
+      await showDialog('Erro', message);
     } finally {
       setLoading(false);
     }

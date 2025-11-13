@@ -46,22 +46,22 @@ const DashboardScreen = () => {
   const categorias = useAppSelector((state) => state.categorias.items);
   const metas = useAppSelector((state) => state.metas.items);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     dispatch(fetchRendas());
     dispatch(fetchDespesas());
     dispatch(fetchCategorias());
     dispatch(fetchMetas());
-  };
+  }, [dispatch]);
 
-  const onRefresh = async () => {
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
-  };
+  }, [loadData]);
 
   const handleThemeToggle = useCallback(() => {
     if (themeTransition) return;

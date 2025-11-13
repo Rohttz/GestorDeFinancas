@@ -118,21 +118,21 @@ const RendasListScreen = () => {
 
   const tipoValue = useWatch({ control, name: 'tipo' }) ?? 'Unica';
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     dispatch(fetchRendas());
     dispatch(fetchCategorias());
     dispatch(fetchContas());
-  };
+  }, [dispatch]);
 
-  const onRefresh = async () => {
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
-  };
+  }, [loadData]);
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirmDialog('Confirmar exclusão', 'Deseja realmente excluir esta renda?', {
@@ -267,6 +267,7 @@ const RendasListScreen = () => {
       closeModal();
       dispatch(fetchRendas());
     } catch (error) {
+      console.error('Erro ao salvar renda', error);
       showDialog('Erro', 'Ocorreu um erro ao salvar a renda.');
     } finally {
       setLoadingForm(false);

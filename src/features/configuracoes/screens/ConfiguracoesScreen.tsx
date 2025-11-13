@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -65,6 +65,8 @@ const ConfiguracoesScreen = () => {
   const despesas = useAppSelector((state) => state.despesas.items);
   const { user: authUser, initializing: authInitializing } = useAppSelector((state) => state.auth);
 
+  const categoriasVisiveis = useMemo(() => categorias.filter((categoria) => categoria.tipo !== 'Meta'), [categorias]);
+
   const {
     control: categoriaControl,
     handleSubmit: handleCategoriaSubmit,
@@ -97,15 +99,15 @@ const ConfiguracoesScreen = () => {
   const modalHandledRef = useRef(false);
   const lastActionRef = useRef<string | undefined>(undefined);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     dispatch(fetchCategorias());
     dispatch(fetchContas());
     dispatch(fetchUsuarios());
-  };
+  }, [dispatch]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const resetUIState = useCallback(() => {
     setActiveSection(null);
@@ -135,6 +137,7 @@ const ConfiguracoesScreen = () => {
     } catch (error) {
       setLogoutLoading(false);
       setLogoutError('Não foi possível encerrar a sessão. Tente novamente.');
+      console.error('Erro ao encerrar sessão', error);
     }
   }, [dispatch]);
 
@@ -153,11 +156,11 @@ const ConfiguracoesScreen = () => {
     }
   }, [authInitializing, authUser, resetUIState, router]);
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
-  };
+  }, [loadData]);
 
   const openModal = useCallback(
     (section: ConfigSection, item?: any) => {
@@ -238,6 +241,7 @@ const ConfiguracoesScreen = () => {
       }
       closeModal();
     } catch (error) {
+      console.error('Erro ao salvar categoria', error);
       showDialog('Erro', 'Ocorreu um erro.');
     } finally {
       setLoading(false);
@@ -261,6 +265,7 @@ const ConfiguracoesScreen = () => {
       }
       closeModal();
     } catch (error) {
+      console.error('Erro ao salvar conta', error);
       showDialog('Erro', 'Ocorreu um erro.');
     } finally {
       setLoading(false);
@@ -279,6 +284,7 @@ const ConfiguracoesScreen = () => {
       }
       closeModal();
     } catch (error) {
+      console.error('Erro ao salvar usuário', error);
       showDialog('Erro', 'Ocorreu um erro.');
     } finally {
       setLoading(false);
@@ -325,7 +331,7 @@ const ConfiguracoesScreen = () => {
       else if (section === 'contas') dispatch(deleteConta(id));
       else if (section === 'usuarios') dispatch(deleteUsuario(id));
     },
-    [categoriaEmUso, contaEmUso, dispatch],
+    [categoriaEmUso, contaEmUso, confirmDialog, dispatch, showDialog],
   );
 
   const renderCategoriaItem = ({ item }: any) => (
@@ -415,7 +421,7 @@ const ConfiguracoesScreen = () => {
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={[styles.menuTitle, { color: colors.text }]}>Categorias</Text>
                   <Text style={[styles.menuSubtitle, { color: colors.textSecondary }]}>
-                    {categorias.length} cadastradas
+                    {categoriasVisiveis.length} cadastradas
                   </Text>
                 </View>
                 <ChevronRight size={20} color={colors.textSecondary} />
@@ -472,7 +478,7 @@ const ConfiguracoesScreen = () => {
         <FlatList<any>
           data={
             activeSection === 'categorias'
-              ? categorias
+              ? categoriasVisiveis
               : activeSection === 'contas'
               ? contas
               : usuarios

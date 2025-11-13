@@ -14,6 +14,19 @@ npm run dev
 
 Com o Metro rodando, abra o Expo Go (ou um simulador) e carregue o projeto. Todas as telas citadas abaixo ficam disponíveis na barra inferior de abas.
 
+### Backend opcional (NestJS)
+Se desejar validar a API real utilizada pelo app:
+
+```bash
+cd backend
+npm install
+npm run migration:run
+npm run seed # opcional, cria dados demo
+npm run start:dev
+```
+
+> Documentação completa da API: consulte `backend/docs/api-reference.md` para rotas e exemplos de payload, além de `backend/docs/explicacao.txt` para o racional arquitetural. A coleção Postman está em `backend/postman/gestor-financas.postman_collection.json`.
+
 ---
 
 ## ✅ Requisito 1 — Stack técnica completa (6,0 pts)

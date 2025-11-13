@@ -51,6 +51,7 @@ export const bootstrapSession = createAsyncThunk<AuthUser | null>(
       }
       return sanitizeUser(usuario);
     } catch (error) {
+      console.error('Erro ao restaurar sessão de autenticação', error);
       await AsyncStorage.removeItem(SESSION_KEY);
       return null;
     }
@@ -61,20 +62,21 @@ export const login = createAsyncThunk<
   AuthUser,
   { email: string; senha: string; remember: boolean }
 >('auth/login', async ({ email, senha, remember }, { rejectWithValue }) => {
-  const usuario = await usuariosService.findByEmail(email.trim());
-  if (!usuario || usuario.senha !== senha) {
-    return rejectWithValue('Email ou senha inválidos.');
+  try {
+    const usuario = await usuariosService.login(email.trim(), senha);
+    const user = sanitizeUser(usuario);
+
+    if (remember) {
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id }));
+    } else {
+      await AsyncStorage.removeItem(SESSION_KEY);
+    }
+
+    return user;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Email ou senha inválidos.';
+    return rejectWithValue(message);
   }
-
-  const user = sanitizeUser(usuario);
-
-  if (remember) {
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id }));
-  } else {
-    await AsyncStorage.removeItem(SESSION_KEY);
-  }
-
-  return user;
 });
 
 export const register = createAsyncThunk<

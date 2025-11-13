@@ -1,0 +1,310 @@
+{
+  "info": {
+    "_postman_id": "f9f6c9f9-2b2e-4d2b-9d61-1234567890ab",
+    "name": "Gestor de Finanças API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleção de requisições para testar a API NestJS"
+  },
+  "item": [
+    {
+      "name": "Usuarios",
+      "item": [
+        {
+          "name": "Criar usuário",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/usuarios",
+              "host": ["{{baseUrl}}"],
+              "path": ["usuarios"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Usuário Demo\",\n  \"email\": \"demo@financas.com\",\n  \"password\": \"123456\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar usuários",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/usuarios",
+              "host": ["{{baseUrl}}"],
+              "path": ["usuarios"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contas",
+      "item": [
+        {
+          "name": "Criar conta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contas",
+              "host": ["{{baseUrl}}"],
+              "path": ["contas"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Conta Corrente\",\n  \"type\": \"checking\",\n  \"initialBalance\": 5000,\n  \"userId\": \"{{userId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar contas",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/contas?usuarioId={{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["contas"],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categorias",
+      "item": [
+        {
+          "name": "Criar categoria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/categorias",
+              "host": ["{{baseUrl}}"],
+              "path": ["categorias"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alimentação\",\n  \"type\": \"expense\",\n  \"spendingLimit\": 1500,\n  \"userId\": \"{{userId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar categorias",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/categorias?usuarioId={{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["categorias"],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Metas",
+      "item": [
+        {
+          "name": "Criar meta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/metas",
+              "host": ["{{baseUrl}}"],
+              "path": ["metas"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Reserva\",\n  \"targetValue\": 10000,\n  \"currentValue\": 2500,\n  \"startDate\": \"2025-01-01\",\n  \"endDate\": \"2025-12-31\",\n  \"userId\": \"{{userId}}\",\n  \"accountId\": \"{{accountId}}\",\n  \"categoryId\": \"{{goalCategoryId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar metas",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/metas?usuarioId={{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["metas"],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rendas",
+      "item": [
+        {
+          "name": "Criar renda",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rendas",
+              "host": ["{{baseUrl}}"],
+              "path": ["rendas"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Salário\",\n  \"amount\": 5000,\n  \"date\": \"2025-01-10\",\n  \"recurrence\": \"monthly\",\n  \"userId\": \"{{userId}}\",\n  \"accountId\": \"{{accountId}}\",\n  \"categoryId\": \"{{incomeCategoryId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar rendas",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/rendas?usuarioId={{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["rendas"],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Despesas",
+      "item": [
+        {
+          "name": "Criar despesa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/despesas",
+              "host": ["{{baseUrl}}"],
+              "path": ["despesas"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Mercado\",\n  \"amount\": 300,\n  \"date\": \"2025-01-12\",\n  \"userId\": \"{{userId}}\",\n  \"accountId\": \"{{accountId}}\",\n  \"categoryId\": \"{{expenseCategoryId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar despesas",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/despesas?usuarioId={{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["despesas"],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Resumo",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard?usuarioId={{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard"],
+              "query": [
+                {
+                  "key": "usuarioId",
+                  "value": "{{userId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "accountId",
+      "value": ""
+    },
+    {
+      "key": "goalCategoryId",
+      "value": ""
+    },
+    {
+      "key": "incomeCategoryId",
+      "value": ""
+    },
+    {
+      "key": "expenseCategoryId",
+      "value": ""
+    }
+  ]
+}

@@ -214,7 +214,7 @@ export default function RecoveryScreen() {
               <KeyRound size={28} color={colors.primary} />
             </View>
             <Text style={[styles.codeTitle, { color: colors.text }]}>Código gerado com sucesso</Text>
-            <Text style={[styles.codeMessage, { color: colors.textSecondary }]}>Use o código abaixo para redefinir sua senha. Ele já foi preenchido automaticamente no campo "Código recebido".</Text>
+            <Text style={[styles.codeMessage, { color: colors.textSecondary }]}>Use o código abaixo para redefinir sua senha. Ele já foi preenchido automaticamente no campo “Código recebido”.</Text>
             <View style={[styles.codeBadge, { backgroundColor: withOpacity(colors.primary, 0.08), borderColor: withOpacity(colors.primary, 0.3) }]}> 
               <Text style={[styles.codeText, { color: colors.primary }]}>{resetRequest?.code ?? '-----'}</Text>
             </View>

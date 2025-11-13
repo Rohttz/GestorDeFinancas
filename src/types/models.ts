@@ -1,7 +1,7 @@
 export interface Categoria {
   id?: string;
   nome: string;
-  tipo: 'Receita' | 'Despesa';
+  tipo: 'Receita' | 'Despesa' | 'Meta';
   cor?: string;
   observacoes?: string;
   created_at?: string;
@@ -77,6 +77,6 @@ export interface DashboardData {
   totalDespesas: number;
   saldo: number;
   metasProgresso: number;
-  receitasPorCategoria: Array<{ categoria: string; valor: number; cor: string }>;
-  despesasPorCategoria: Array<{ categoria: string; valor: number; cor: string }>;
+  receitasPorCategoria: { categoria: string; valor: number; cor: string }[];
+  despesasPorCategoria: { categoria: string; valor: number; cor: string }[];
 }

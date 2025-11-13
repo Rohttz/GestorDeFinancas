@@ -1,0 +1,16 @@
+O projeto Gestor de Finanças foi estruturado em módulos independentes para garantir coesão por domínio e facilidade de manutenção. Cada módulo (usuários, contas, categorias, rendas, despesas, metas e dashboard) expõe serviços, controladores, DTOs e entidades alinhados às regras de negócio descritas no enunciado da disciplina.
+
+Principais decisões de arquitetura:
+1. **NestJS + TypeORM**: Permite definição clara de módulos e integrações com PostgreSQL via migrations e seeds. Optou-se por entities com herança da classe base `AbstractEntity` para manter campos `id`, `createdAt` e `updatedAt` padronizados.
+2. **Validação com class-validator**: Todos os DTOs aplicam validações de formato e regras básicas (ex.: UUID, valores mínimos). Regras complexas foram centralizadas em services utilizando exceções de negócio (`BusinessRuleException`).
+3. **Seeds e Migrations**: As migrations criam a estrutura completa do banco. O script de seeds insere dados demonstrativos coerentes, facilitando testes manuais e integração com o app Expo.
+4. **Integração entre módulos**: Serviços dependem de repositórios TypeORM injetados, garantindo transações consistentes. Ao registrar rendas/despesas, a atualização de saldo e progresso de metas ocorre dentro do mesmo fluxo para evitar inconsistências.
+5. **Testes automatizados**: A configuração do Jest com `ts-jest` permite escrever testes unitários com TypeScript. Um teste exemplo valida a exceção de regra de negócio; a base está pronta para ampliar a cobertura.
+
+Fluxo típico de uso:
+1. Criar usuário, conta e categorias.
+2. Registrar metas e rendas para alimentar o saldo.
+3. Registrar despesas (com ou sem parcelamento) vinculando a metas relevantes.
+4. Consultar o dashboard para visão consolidada de saldo, metas e despesas futuras.
+
+Os endpoints foram documentados em `docs/api-reference.md` e a coleção Postman (`postman/gestor-financas.postman_collection.json`) fornece exemplos prontos para chamadas. Para executar localmente: configure o `.env`, rode `npm install`, `npm run migration:run`, `npm run seed` e `npm run start:dev`. Após isso, o frontend Expo pode consumir os endpoints pela URL definida na variável `baseUrl`.
