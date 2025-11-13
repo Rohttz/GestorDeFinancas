@@ -1,117 +1,167 @@
-# Gestor de Finanças - Backend
+# Gestor de Finanças – Backend
 
-API construída com [NestJS](https://nestjs.com/) e [TypeORM](https://typeorm.io/) para suportar o aplicativo Gestor de Finanças.
+Backend NestJS + TypeORM responsável por alimentar o aplicativo Expo/React Native. Este documento consolida a configuração, regras de negócio e rotas do servidor.
 
-## Requisitos
+---
+
+## 🌐 Arquitetura
+
+| Componente | Descrição |
+| ---------- | --------- |
+| NestJS | Framework principal (`src/main.ts`, módulos em `src/modules`). |
+| TypeORM | ORM com migrations (`src/database/migrations`). |
+| PostgreSQL | Banco relacional padrão; conexão configurada via `.env`. |
+| Auth | JWT + bcrypt com guards (`src/modules/auth`). |
+| Dashboard | Endpoint agregado (`src/modules/dashboard`). |
+
+Módulos CRUD expostos: `accounts`, `categories`, `incomes`, `expenses`, `goals`, `users`. Cada módulo possui entidade, controller, service e DTOs com validações.
+
+---
+
+## ✨ Destaques
+
+- **Regras de negócio**: mais de 15 validações lançando `BusinessRuleException` ou `NotFoundException`, cobrindo limites de contas, categorias, metas e status de usuários.
+- **Integração com o app**: respostas de erro estruturadas são consumidas pelo frontend (ver `src/services/api.ts`).
+- **Dashboard customizado**: módulo `dashboard` agrega dados de receitas, despesas, contas e metas para exibição na aba inicial.
+- **Seeds opcionais**: scripts `npm run seed` e `npm run seed:default-categories` adicionam dados base.
+- **Coleção Postman**: disponível em `postman/gestor-financas.postman_collection.json` com cenários de sucesso/erro.
+
+---
+
+## 🚀 Como executar
+
+### 1. Pré-requisitos
+
 - Node.js 18+
-- PostgreSQL 13+
+- npm 9+
+- PostgreSQL 14+
 
-## Configuração
-1. Copie `.env.example` para `.env` e ajuste as variáveis de banco ou utilize o bloco abaixo como base:
-   ```env
-   NODE_ENV=development
-   PORT=3000
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_USERNAME=postgres
-   DB_PASSWORD=postgres
-   DB_NAME=finance
-   DB_SSL=false
-   ```
-2. Instale dependências:
-   ```bash
-   npm install
-   ```
-3. Gere o build (necessário para executar com Node em produção):
-   ```bash
-   npm run build
-   ```
-4. Execute as migrations para preparar o banco:
-   ```bash
-   npm run migration:run
-   ```
-5. (Opcional) Popule dados demo:
-   ```bash
-   npm run seed
-   ```
-6. Inicie a API em modo desenvolvimento (watch) ou produção:
-   ```bash
-   npm run start:dev
-   # ou
-   npm run start
-   ```
+### 2. Instalar dependências
 
-A API estará disponível em `http://localhost:3000` por padrão.
+```bash
+cd backend
+npm install
+```
 
-### Integração com Postman
-1. Abra o Postman e importe `postman/gestor-financas.postman_collection.json`.
-2. Crie um ambiente com a variável `baseUrl` apontando para a URL da API (ex.: `http://localhost:3000`).
-3. Após executar as migrations/seed, preencha as variáveis `userId`, `accountId`, `incomeCategoryId`, `expenseCategoryId` e `goalCategoryId` com os IDs retornados nas rotas de listagem ou seeds.
-4. Execute as requisições CRUD conforme necessidade. Os endpoints seguem a convenção REST descrita abaixo.
+### 3. Configurar variáveis de ambiente
 
-## Estrutura Principal
-- `src/modules`: módulos por domínio (usuários, contas, categorias, rendas, despesas, metas, dashboard).
-- `src/database`: configuração do TypeORM, migrações e seeds.
-- `src/common`: componentes compartilhados (entidades base, enums, exceções).
+Copie `.env.example` para `.env` ou utilize o template:
 
-## Endpoints Principais
+```env
+NODE_ENV=development
+PORT=3000
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_NAME=gestor_financas
+DB_SSL=false
 
-| Recurso | Método | Rota | Descrição |
-|---------|--------|------|-----------|
-| Usuários | `POST` | `/usuarios` | Cria um usuário com validação de e-mail único e senha hash.
-| Usuários | `GET` | `/usuarios` | Lista todos os usuários ativos/inativos.
-| Usuários | `GET` | `/usuarios/:id` | Retorna um usuário específico.
-| Usuários | `PATCH` | `/usuarios/:id` | Atualiza dados gerais e senha (rehash automático).
-| Usuários | `DELETE` | `/usuarios/:id` | Remove usuário e dados associados.
-| Contas | `POST` | `/contas` | Cria conta para um usuário garantindo saldo inicial não negativo.
-| Contas | `GET` | `/contas?usuarioId=UUID` | Lista contas de um usuário.
-| Contas | `PATCH` | `/contas/:id` | Atualiza dados, muda titular e valida limites.
-| Contas | `DELETE` | `/contas/:id` | Remove conta (exige `cascade=true` se houver vínculos).
-| Categorias | `POST` | `/categorias` | Cadastra categoria de renda/despesa/meta.
-| Categorias | `DELETE` | `/categorias/:id` | Bloqueia exclusão quando há metas vinculadas.
-| Metas | `POST` | `/metas` | Cria meta garantindo datas válidas e apenas uma ativa por categoria.
-| Metas | `PATCH` | `/metas/:id` | Ajusta progresso respeitando limites e status.
-| Rendas | `POST` | `/rendas` | Lança renda atualizando saldo e metas.
-| Rendas | `PATCH` | `/rendas/:id` | Reatribui categoria/conta/meta com ajustes de saldo.
-| Despesas | `POST` | `/despesas` | Registra despesa com controle de parcelamento e limites.
-| Despesas | `PATCH` | `/despesas/:id` | Recalcula saldos e metas ao editar.
-| Dashboard | `GET` | `/dashboard?usuarioId=UUID` | Retorna saldo total, somas mensais, progresso de metas e próximas despesas.
+JWT_SECRET=super-secret
+EXPIRES_IN=1d
 
-## Scripts NPM
-- `start`: inicia a API em modo produção
-- `start:dev`: inicia com hot reload
-- `build`: compila o projeto
-- `lint`: executa ESLint
-- `test`: executa Jest
-- `migration:*`: utilitários TypeORM
-- `seed`: popula o banco com dados de exemplo
+EXPO_PUBLIC_API_URL=http://localhost:3000
+```
 
-## Postman Collection
-O arquivo `postman/gestor-financas.postman_collection.json` contém requisições prontas para testes da API. Após importar, ajuste as variáveis do ambiente conforme IDs reais retornados pelas requisições de criação/listagem.
+> O frontend consome `EXPO_PUBLIC_API_URL`. Mantenha o valor alinhado ao endereço do backend.
 
-## Regras de Negócio Cobertas
-1. Usuários têm e-mails únicos.
-2. Despesas não deixam o saldo da conta negativo.
-3. Rendas incrementam o saldo da conta.
-4. Despesas respeitam limites de categoria.
-5. Metas não ultrapassam o valor objetivo.
-6. Exclusão de conta com movimentações exige confirmação (`cascade`).
-7. Metas têm data inicial anterior à final.
-8. Rendas recorrentes exigem intervalo.
-9. Despesas parceladas possuem número de parcelas ≥ 1.
-10. Categorias com metas não podem ser excluídas.
-11. Usuários inativos não lançam movimentações.
-12. Saldo inicial da conta é não negativo.
-13. Despesas vinculam-se a conta **ou** meta.
-14. Rendas não alimentam metas concluídas.
-15. Usuário só mantém uma meta ativa por categoria.
+### 4. Preparar o banco
 
-## Dashboard
-Endpoint `GET /dashboard?usuarioId=<uuid>` provê:
-- Saldo total consolidado
-- Totais de receitas e despesas no mês corrente
-- Progresso das metas
-- Próximas 5 despesas
+```bash
+# cria banco (se habilitado) e executa migrations + categorias padrão
+npm run db:prepare
 
-## Testes
-Execute `npm test` para rodar a suíte. Adicione testes unitários/integração conforme evoluir.
+# caso o banco já exista, apenas aplique migrations
+npm run migration:run
+
+# opcional: dados de demonstração completos
+npm run seed
+```
+
+> A migration `1700000000001_remove_meta_account_category.ts` remove vínculos obrigatórios em metas. Execute `npm run migration:run` após atualizar o projeto.
+
+### 5. Subir o servidor
+
+```bash
+npm run start:dev
+```
+
+Servidor disponível em `http://localhost:3000`.
+
+### 6. Build opcional
+
+```bash
+npm run build
+npm run start
+```
+
+---
+
+## 🧪 Scripts úteis
+
+| Comando | Descrição |
+| ------- | --------- |
+| `npm run start:dev` | Inicia servidor com hot reload. |
+| `npm run start` | Executa em modo produção (build prévio necessário). |
+| `npm run build` | Compila TypeScript para `dist`. |
+| `npm run lint` | Executa ESLint. |
+| `npm run test` | Roda Jest. |
+| `npm run migration:run` | Aplica migrations pendentes. |
+| `npm run migration:revert` | Reverte última migration. |
+| `npm run db:prepare` | Cria banco/migrations + seeds padrão. |
+| `npm run seed` | Popula dados de demonstração. |
+| `npm run seed:default-categories` | Insere categorias padrão. |
+
+---
+
+## ✅ Checklist de requisitos
+
+| Item | Atendimento |
+| ---- | ----------- |
+| NestJS + TypeORM + PostgreSQL | ✔️ `app.module.ts`, entidades em `src/modules/**/entities`. |
+| 5 CRUDs + página personalizada | ✔️ Módulos `accounts`, `categories`, `incomes`, `expenses`, `goals` + `dashboard`. |
+| Migrations TypeORM | ✔️ `1700000000000_initial_schema.ts`, `1700000000001_remove_meta_account_category.ts`. |
+| 15+ regras de negócio | ✔️ Validações em services (limite de gastos, usuário inativo, metas concluídas, saldo negativo etc.). |
+| Collection Postman | ✔️ `postman/gestor-financas.postman_collection.json`. |
+| Integração com aplicativo | ✔️ Serviços frontend consomem API e exibem erros. |
+| README de execução | ✔️ Este documento + README raiz orientam setup. |
+
+---
+
+## Endpoints principais
+
+| Recurso | Método | Rota | Destaques de regra |
+|---------|--------|------|--------------------|
+| Usuários | `POST` | `/usuarios` | E-mail único, senha com hash, status ativo/inativo. |
+| Contas | `POST` | `/contas` | Saldo inicial ≥ 0, validação de usuário. |
+| Contas | `DELETE` | `/contas/:id` | Bloqueia exclusão sem `cascade` quando há movimentações. |
+| Categorias | `POST` | `/categorias` | Tipagem (renda/despesa), limite opcional. |
+| Categorias | `DELETE` | `/categorias/:id` | Impede remoção caso usada. |
+| Metas | `POST` | `/metas` | Datas válidas, progresso ≤ alvo. |
+| Metas | `PATCH` | `/metas/:id` | Mantém consistência de status. |
+| Rendas | `POST` | `/rendas` | Usuário ativo, conta válida, metas não concluídas. |
+| Rendas | `PATCH` | `/rendas/:id` | Ajusta saldos/metas ao alterar conta/meta. |
+| Despesas | `POST` | `/despesas` | Limite de categoria, crédito, vínculo conta OU meta. |
+| Despesas | `PATCH` | `/despesas/:id` | Recalcula saldos/metas e parcelas. |
+| Dashboard | `GET` | `/dashboard?usuarioId=` | Consolida métricas financeiras. |
+
+---
+
+## Integração com Postman
+
+1. Importe `postman/gestor-financas.postman_collection.json`.
+2. Crie ambiente com `baseUrl` (ex.: `http://localhost:3000`).
+3. Preencha variáveis `userId`, `accountId`, `incomeCategoryId`, `expenseCategoryId`, `goalId` após executar seeds ou criar dados manualmente.
+4. Execute cenários de sucesso e erro para demonstrar regras de negócio.
+
+---
+
+## Referências
+
+- Documentação de rotas: `docs/api-reference.md`
+- Arquitetura detalhada: `docs/explicacao.txt`
+- Resumo de requisitos: `docs/requirements-overview.md`
+
+---
+
+Executando os passos acima, o backend opera integrado ao aplicativo, evidenciando todos os requisitos do Trabalho 02. Bons testes! 🚀
