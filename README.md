@@ -1,116 +1,164 @@
-# Gestor de Finanças – Guia para Validação dos Requisitos
+# Gestor de Finanças
 
-Este guia reúne os passos que o avaliador deve seguir para comprovar os requisitos técnicos e criativos definidos para o projeto.
+Aplicativo de gestão financeira pessoal construído com **Expo (React Native)** no frontend e **NestJS + TypeORM** no backend. O projeto oferece CRUD completo para contas, categorias, rendas, despesas, metas e usuários, além de um dashboard analítico com gráficos, filtros e suporte a tema claro/escuro.
 
-## 🛠️ Preparação do ambiente
+---
 
-```bash
-# instalar dependências
-npm install
+## 🌐 Arquitetura
 
-# iniciar o app em modo desenvolvimento (Expo)
-npm run dev
+| Camada | Diretório | Destaques |
+| ------ | --------- | --------- |
+| Aplicativo móvel/web (Expo Router) | `app/`, `src/` | Navegação em abas, formulários com React Hook Form + Yup, componentes reutilizáveis (botões, inputs mascarados, pickers), integração com API REST. |
+| Backend (NestJS) | `backend/` | Módulos independentes para `contas`, `categorias`, `rendas`, `despesas`, `metas`, `usuarios`, `auth`, `dashboard`; validação com class-validator; regras de negócio para atualização de saldos/metas; comunicação com Postgres via TypeORM. |
+| Banco de dados | Postgres | Migrations em `backend/src/database/migrations`. Seeds utilitárias para dados iniciais (`npm run seed`, `npm run seed:default-categories`). |
+
+Documentação detalhada dos endpoints está em `backend/docs/api-reference.md`; há também uma coleção Postman em `backend/postman/gestor-financas.postman_collection.json`.
+
+---
+
+## ✨ Funcionalidades
+
+- **Dashboard analítico** com gráficos (`react-native-chart-kit`), métricas e alternância de tema animada.
+- **CRUDs completos** para rendas, despesas, metas, categorias, contas e usuários, todos com validações ricas, máscaras de entrada e feedback contextual.
+- **Regras financeiras** no backend: atualização de saldo das contas, controle de limites de categorias, progresso de metas e consistência entre lançamentos.
+- **Arquitetura modular** com slices Redux Toolkit para cada domínio (`src/store/slices/*`) e serviços centralizados em `src/services/api.ts`.
+- **Tema persistente** via `ThemeContext` e integração com AsyncStorage.
+- **Autenticação** (login/logout) com persistência de sessão e guardas de rota.
+
+---
+
+## 🧰 Stack principal
+
+- **Frontend:** Expo, React Native, Expo Router, React Hook Form, Yup, Redux Toolkit, AsyncStorage, `lucide-react-native`, `expo-linear-gradient`.
+- **Backend:** NestJS, TypeORM, PostgreSQL, class-validator, bcrypt, JWT (via módulo de auth), scripts de seed/migration.
+
+---
+
+## 🚀 Como executar
+
+### 1. Pré-requisitos
+
+- Node.js 18+
+- npm 9+
+- PostgreSQL 14+ disponível na máquina local
+
+### 2. Configurar variáveis de ambiente
+
+Crie um arquivo `.env` na raiz (já existe um exemplo) com, pelo menos:
+
+```env
+EXPO_PUBLIC_API_URL=http://localhost:3000
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_NAME=gestor_financas
+
+JWT_SECRET=super-secret
 ```
 
-Com o Metro rodando, abra o Expo Go (ou um simulador) e carregue o projeto. Todas as telas citadas abaixo ficam disponíveis na barra inferior de abas.
+> O backend também aceita aliases `DATABASE_*`; mantenha os valores sincronizados.
 
-### Backend opcional (NestJS)
-Se desejar validar a API real utilizada pelo app:
+### 3. Instalar dependências
+
+```bash
+# instalar dependências do app (pasta raiz)
+
+
+# instalar dependências do backend
+cd backend
+npm install
+cd ..
+```
+
+### 4. Preparar o banco
+
+No diretório `backend/`:
 
 ```bash
 cd backend
-npm install
+
+# cria banco (script usa as variáveis do .env) e executa migrations + categorias padrão
+npm run db:prepare
+
+# caso já esteja com o banco criado, execute apenas as migrations mais recentes
 npm run migration:run
-npm run seed # opcional, cria dados demo
-npm run start:dev
+
+# opcional: popula dados demo adicionais
+npm run seed
 ```
 
-> Documentação completa da API: consulte `backend/docs/api-reference.md` para rotas e exemplos de payload, além de `backend/docs/explicacao.txt` para o racional arquitetural. A coleção Postman está em `backend/postman/gestor-financas.postman_collection.json`.
+> ⚠️ Após esta atualização foi adicionada a migration `1700000000001_remove_meta_account_category.ts`, que remove as colunas `accountId` e `categoryId` de `metas`. Execute `npm run migration:run` para evitar erros 500 ao criar metas.
+
+### 5. Subir os serviços
+
+```bash
+# backend (NestJS)
+cd backend
+npm run start:dev
+
+# em outro terminal, na raiz
+npm run dev
+```
+
+O Expo abrirá o Metro bundler; utilize Expo Go ou um emulador para testar. A API ficará disponível em `http://localhost:3000`.
 
 ---
 
-## ✅ Requisito 1 — Stack técnica completa (6,0 pts)
+## 🧪 Scripts úteis
 
-### 1.1 Componentes, bibliotecas e integrações (2,0 pts)
-
-1. Abra qualquer tela (por exemplo, **Dashboard**) e observe o uso extensivo de componentes nativos do React Native: `View`, `Text`, `ScrollView`, `FlatList`, `Modal`, `TouchableOpacity`, `RefreshControl`, `ActivityIndicator`, `Alert`, `Animated`, entre outros (ver `src/features/**/*`).
-2. Confirme o uso das bibliotecas exigidas:
-   - **React Navigation / Expo Router** (`app/(tabs)/_layout.tsx`) para múltiplas telas.
-   - **React Hook Form** + **Yup** (`react-hook-form`, `@hookform/resolvers/yup`, `yup`) nos formulários, ex.: `src/features/rendas/screens/RendaFormScreen.tsx`.
-   - **Máscaras de input** com `react-native-mask-text`, encapsuladas em `src/components/InputMask.tsx`.
-   - **Ícones** com `lucide-react-native`, **gráficos** com `react-native-chart-kit`, **gradientes** com `expo-linear-gradient`, etc.
-   - **AsyncStorage** para persistência local em `src/services/api.ts` e `src/store/slices/authSlice.ts`.
-   - **Comunicação com API local** via o helper de `src/services/api.ts`, que abstrai Create/Read/Update/Delete usando AsyncStorage como banco local.
-
-### 1.2 Cinco CRUDs completos com entradas variadas (3,0 pts)
-
-Para cada módulo abaixo, percorra a sequência **Listar → Criar → Editar → Excluir**. Todos utilizam pelo menos 5 campos e tipos variados (texto, números, máscaras, seletores, switches ou pickers):
-
-| CRUD | Tela de listagem | Tela de formulário | Campos de destaque |
-|------|------------------|--------------------|---------------------|
-| Rendas | `app/(tabs)/rendas/index.tsx` → `RendasListScreen` | `app/(tabs)/rendas/form.tsx` → `RendaFormScreen` | Descrição, Valor (máscara), Tipo (Picker), Datas (máscara), Categoria, Conta |
-| Despesas | `app/(tabs)/despesas.tsx` → `DespesasScreen` | Modal interno em **Despesas** | Título, Valor (máscara), Categoria, Conta, Data, Parcelamento |
-| Metas | `app/(tabs)/metas.tsx` → `MetasScreen` | Modal interno em **Metas** | Nome, Valor alvo, Valor atual, Prazo, Status (Picker) |
-| Categorias | `app/(tabs)/configuracoes.tsx` → `ConfiguracoesScreen` (seção Categorias) | Modal de Categoria | Nome, Tipo (Picker), Cor (ColorPicker), Observações |
-| Contas | `ConfiguracoesScreen` (seção Contas) | Modal de Conta | Nome, Tipo, Observações, Saldo inicial automático |
-| Usuários | `ConfiguracoesScreen` (seção Usuários) | Modal de Usuário | Nome, E-mail, Tipo de acesso (Picker), Status (Picker) |
-
-> **Dica:** Todos os formulários exibem mensagens de validação em tempo real graças ao React Hook Form + Yup. Experimente enviar campos vazios para ver os avisos obrigatórios.
-
-### 1.3 Tela diferenciada (1,0 pt)
-
-- A aba **Dashboard** (`src/features/dashboard/screens/DashboardScreen.tsx`) apresenta visualização avançada de dados:
-  - Gráficos de pizza (`react-native-chart-kit`) com cores dinâmicas.
-  - Cartões de estatísticas com `expo-linear-gradient` e animações (`Animated`).
-  - Filtro por intervalo de datas com inputs mascarados.
-  - Toggle de tema claro/escuro animado.
+| Comando | Local | Descrição |
+| ------- | ----- | --------- |
+| `npm run dev` | raiz | Inicia o app Expo (web, Android e iOS via Metro). |
+| `npm run lint` | raiz | Executa lint do frontend com Expo. |
+| `npm run build` | `backend/` | Compila o backend NestJS. |
+| `npm run start:dev` | `backend/` | Sobe o servidor com hot reload. |
+| `npm run migration:run` | `backend/` | Aplica migrations pendentes. |
+| `npm run migration:revert` | `backend/` | Reverte a última migration aplicada. |
+| `npm run seed` | `backend/` | Insere dados demo completos. |
+| `npm run seed:default-categories` | `backend/` | Popula categorias base para qualquer usuário. |
 
 ---
 
-## 🎨 Requisito 2 — Criatividade e Interface (2,0 pts)
+## 📂 Estrutura resumida
 
-Passeie por todas as abas e observe:
-- Paleta de cores adaptável ao tema claro/escuro (controle no Dashboard).
-- Cartões reutilizáveis (`src/components/Card.tsx`), botões customizados (`src/components/Button.tsx`), entradas mascaradas, seletores personalizados (`src/components/Picker.tsx`).
-- Animações sutis ao trocar de tema e ao exibir painéis, garantindo experiência consistente.
-- Navegação em abas (`app/(tabs)/_layout.tsx`) simples e intuitiva, com agrupamento de rotas seguindo boas práticas do Expo Router.
-
-> Personalizações extras: color-picker para categorias, alertas contextuais, prompts automáticos para cadastro de contas antes de lançamentos, modais com design consistente e responsivo.
-
----
-
-## 🧠 Bastidores técnicos para explicar durante a avaliação
-
-### Armazenamento & API local
-- **AsyncStorage como banco:** `src/services/api.ts` implementa helpers (`list`, `create`, `update`, `remove`) que guardam os dados em chaves `db:<coleção>` do AsyncStorage. Cada slice Redux consome essa camada para manter o estado sincronizado.
-- **Seed automático:** as seeds de rendas e despesas são marcadas via flags no AsyncStorage (`incomeSeed:<userId>`), garantindo que cada usuário receba dados iniciais apenas uma vez.
-- **Persistência de sessão:** `src/store/slices/authSlice.ts` salva o usuário autenticado em `SESSION_KEY`, permitindo login automático quando o app é reaberto.
-
-### Fluxo de autenticação
-- Tela de login localizada em `app/login.tsx` (ou route equivalente via Expo Router).
-- Ações Redux `signIn`, `signOut` e `restoreSession` orquestram login, logout e resgate da sessão, com feedback visual via `Loading` e `Alert`.
-- Após `signIn`, o usuário é redirecionado para `/(tabs)`; ao fazer logout na tela de Configurações, o estado limpa o AsyncStorage e volta ao login.
-
-### Componentes reutilizáveis
-- **Form inputs customizados:** `InputMask`, `Picker`, `ColorPicker` e `Button` encapsulam estilos, estados de erro e integração com o tema, acelerando a criação de formulários complexos.
-- **Layout consistente:** `Card` e `Loading` mantêm padrões visuais em todo o app. A arquitetura em `src/features/<domínio>/screens` facilita reuso e manutenção.
-
-### Animações e microinterações
-- **Tema com transição animada** (`DashboardScreen`): usa `Animated.timing` para opacidade/escala ao trocar de modo claro/escuro.
-- **Feedbacks visuais**: loaders `ActivityIndicator`, alertas condicionais e motion nos cartões do Dashboard criam sensação de fluidez.
-
-### Tema dinâmico
-- **Contexto de tema** (`src/contexts/ThemeContext.tsx`): expõe `colors`, `isDark` e `toggleTheme`, persistindo a escolha no AsyncStorage para manter o modo selecionado.
-- **Hook `useTheme`** aplicado em todo componente chave, garantindo aderência automática ao tema ao renderizar textos, inputs e cards.
-- **Dashboard** oferece o botão de toggle, demonstrando rapidamente a diferença entre temas para a banca.
+```
+GestorDeFinancas/
+├── app/                           # Rotas Expo Router
+├── src/
+│   ├── components/                # Componentes reutilizáveis (Button, Card, InputMask ...)
+│   ├── contexts/                  # ThemeContext, DialogContext
+│   ├── features/                  # Fluxos de domínio (dashboard, despesas, metas, rendas ...)
+│   ├── services/api.ts            # Cliente HTTP centralizado
+│   └── store/                     # Redux Toolkit (slices, hooks)
+├── backend/
+│   ├── src/modules/               # Módulos NestJS (accounts, categories, expenses, goals ...)
+│   ├── src/database/migrations/   # Migrations TypeORM (inclui 1700000000001_remove_meta_account_category)
+│   ├── docs/                      # Documentação e coleção Postman
+│   └── package.json
+└── README.md
+```
 
 ---
 
-## 📋 Resumo rápido para a apresentação
+## ✅ Como validar rapidamente
 
-1. **Abrir o Dashboard** → mostrar gráficos, filtros com máscara e animação de tema.
-2. **Acessar cada aba de CRUD (Rendas, Despesas, Metas, Configurações)** → criar, editar e excluir ao menos um item, destacando validações.
-3. **Comentar sobre a stack** → citar bibliotecas instaladas (`package.json`), uso de AsyncStorage e arquitetura em `src/features`.
-4. **Finalizar** ressaltando a coerência visual e as interações suaves.
+1. **Dashboard:** acessar a aba inicial para visualizar gráficos, filtros e alternar o tema.
+2. **Rendas/Despesas:** criar, editar e excluir lançamentos; observe atualizações de saldo e validações (ex.: valor obrigatório, data coerente).
+3. **Metas:** criar metas sem vincular conta/categoria (novo comportamento após migration). O progresso e status são verificados no backend.
+4. **Configurações:** gerenciar contas, categorias e usuários, todos com formulários completos.
+5. **Autenticação:** realizar login e logout para testar persistência de sessão.
 
-Com este roteiro, todos os requisitos podem ser demonstrados em sequência durante a avaliação. Bons testes! 🙌
+---
+
+## � Referências adicionais
+
+- Documentação da API: `backend/docs/api-reference.md`
+- Arquitetura detalhada: `backend/docs/explicacao.txt`
+- Requisitos consolidados: `backend/docs/requirements-overview.md`
+- Coleção Postman: `backend/postman/gestor-financas.postman_collection.json`
+
+---
+
+Qualquer dúvida ou bug encontrado, abra uma issue ou entre em contato com a equipe. Bons testes! �
